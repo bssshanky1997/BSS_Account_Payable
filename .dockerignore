@@ -1,0 +1,24 @@
+node_modules
+npm-debug.log
+.npm
+.git
+.gitignore
+.DS_Store
+
+# Local artifacts and reports
+reports
+report
+test-results
+playwright-report
+screenshots
+artifacts
+
+# Build outputs
+dist
+build
+
+# IDE/runtime files
+.vscode
+.idea
+*.swp
+*.tmp

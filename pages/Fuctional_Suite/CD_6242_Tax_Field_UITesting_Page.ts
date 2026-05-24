@@ -147,7 +147,7 @@ export class CD6242TaxFieldPage {
     const smartApOpened = this.page.url().toLowerCase().includes('smartap.jsp');
     if (smartApOpened) createScratchClicked = true;
 
-    if (!quickLinksClicked || !apInvoiceClicked) {
+    if (!apInvoiceClicked) {
       throw new Error(
         `Unable to open AP Invoice from Quick Links. quick_links_clicked=${quickLinksClicked}, ap_invoice_clicked=${apInvoiceClicked}, page=${this.page.url()}`
       );

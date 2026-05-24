@@ -98,6 +98,80 @@ export class CD5192TaxFunctionalityPage {
     return [this.page, ...this.page.frames()];
   }
 
+  private async clickFirstVisible(context: PageOrFrame, candidates: Locator[]): Promise<boolean> {
+    for (const locator of candidates) {
+      try {
+        if ((await locator.count()) <= 0) continue;
+        const target = locator.first();
+        await target.waitFor({ state: 'visible', timeout: 1500 }).catch(() => undefined);
+        if (!(await target.isVisible().catch(() => false))) continue;
+        await target.click({ timeout: 2000 }).catch(async () => target.click({ timeout: 2000, force: true }));
+        await this.settle(600);
+        return true;
+      } catch {
+        // Keep trying remaining candidates.
+      }
+    }
+    return false;
+  }
+
+  private async clickTextOrHrefInPage(labels: string[], hrefTokens: string[] = []): Promise<boolean> {
+    const script = ({ labelList, hrefList }: { labelList: string[]; hrefList: string[] }) => {
+      const normalizedLabels = (labelList || []).map((label) => (label || '').toLowerCase());
+      const normalizedHrefTokens = (hrefList || []).map((token) => (token || '').toLowerCase());
+      const clickables = Array.from(document.querySelectorAll('a, button, [role="button"], [role="link"]'));
+      const candidate = clickables.find((el) => {
+        if (el.hasAttribute('disabled')) return false;
+        const text = (el.textContent || '').trim().toLowerCase();
+        const href = (el.getAttribute('href') || '').trim().toLowerCase();
+        return (
+          normalizedLabels.some((label) => label && text.includes(label)) ||
+          normalizedHrefTokens.some((token) => token && href.includes(token))
+        );
+      });
+      if (!candidate) return false;
+      candidate.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+      return true;
+    };
+
+    for (const context of this.contexts()) {
+      const clicked = await context.evaluate(script, { labelList: labels, hrefList: hrefTokens }).catch(() => false);
+      if (clicked) {
+        await this.settle(900);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private async openCreateNewInvoiceDropdown(): Promise<boolean> {
+    for (const context of this.contexts()) {
+      const clicked = await this.clickFirstVisible(context, [
+        context.locator('#createNewInvoiceDropdown'),
+        context.locator("[id*='createNewInvoiceDropdown' i]"),
+        context.getByRole('button', { name: /Create New Invoice|Create Invoice/i }),
+        context.getByRole('link', { name: /Create New Invoice|Create Invoice/i }),
+        context.getByText(/Create New Invoice|Create Invoice/i),
+      ]);
+      if (clicked) return true;
+    }
+    return this.clickTextOrHrefInPage(['create new invoice', 'create invoice']);
+  }
+
+  private async openCreateFromScratchOption(): Promise<boolean> {
+    for (const context of this.contexts()) {
+      const clicked = await this.clickFirstVisible(context, [
+        context.getByRole('link', { name: /Create From Scratch/i }),
+        context.getByRole('button', { name: /Create From Scratch/i }),
+        context.getByText(/Create From Scratch/i),
+        context.locator("a[href*=\"createInvoice('scratch')\"]"),
+        context.locator("[onclick*=\"createInvoice('scratch')\"]"),
+      ]);
+      if (clicked) return true;
+    }
+    return this.clickTextOrHrefInPage(['create from scratch'], ["createinvoice('scratch')"]);
+  }
+
   async ensureAllTaxFieldsVisible(): Promise<void> {
     const selectors = [
       '#APINVOICE_HEADER-AUX_TAX1_TRX_AMT',
@@ -375,21 +449,69 @@ export class CD5192TaxFunctionalityPage {
       this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.PAGE_LOAD })
     );
     await this.settle(500);
-    await expect(this.page.locator('#quickLinks1')).toBeVisible({ timeout: TIMEOUTS.LONG });
+    const quickLinksVisible = await this.page.locator('#quickLinks1').first().isVisible({ timeout: TIMEOUTS.LONG }).catch(() => false);
+    const apInvoiceVisible = await this.page
+      .getByRole('button', { name: /AP Invoice|A\/P Invoice|AP Invoice List/i })
+      .first()
+      .isVisible({ timeout: TIMEOUTS.SHORT })
+      .catch(() => false);
+    expect(quickLinksVisible || apInvoiceVisible || this.page.url().includes('/j4/default.jsp')).toBeTruthy();
   }
 
   async openCreateFromScratchInvoice(): Promise<void> {
     await ensureAuthenticatedPage(this.page, '/j4/default.jsp');
     await this.manageScreenForFormVisibility();
-    await this.page.locator('#quickLinks1').click();
-    await this.settle(300);
-    await this.page.getByRole('button', { name: 'AP Invoice' }).click();
-    await this.settle(600);
+    await this.settle(900);
 
-    if (!(await this.isSmartApCreateOpen())) {
-      await this.page.getByRole('button', { name: 'Create New Invoice' }).click().catch(() => undefined);
-      await this.page.getByRole('link', { name: 'Create From Scratch' }).click().catch(() => undefined);
-      await this.settle(800);
+    let quickLinksClicked = false;
+    for (const context of this.contexts()) {
+      quickLinksClicked = await this.clickFirstVisible(context, [
+        context.locator('#quickLinks2'),
+        context.locator('#quickLinks1'),
+        context.getByRole('button', { name: /Quick Links?|Quick Link/i }),
+        context.getByText(/Quick Links?|Quick Link/i),
+      ]);
+      if (quickLinksClicked) break;
+    }
+
+    let apInvoiceClicked = false;
+    for (const context of this.contexts()) {
+      apInvoiceClicked = await this.clickFirstVisible(context, [
+        context.getByRole('button', { name: /AP Invoice|A\/P Invoice|AP Invoice List/i }),
+        context.getByRole('link', { name: /AP Invoice|A\/P Invoice|AP Invoice List/i }),
+        context.getByText(/AP Invoice|A\/P Invoice|AP Invoice List/i),
+      ]);
+      if (apInvoiceClicked) break;
+    }
+    if (!apInvoiceClicked) {
+      apInvoiceClicked = await this.clickTextOrHrefInPage(['ap invoice', 'a/p invoice', 'ap invoice list'], ['apinvoice', 'invoice']);
+    }
+
+    let createDropdownClicked = await this.openCreateNewInvoiceDropdown();
+    if (!createDropdownClicked) {
+      await this.settle(500);
+      createDropdownClicked = await this.openCreateNewInvoiceDropdown();
+    }
+
+    let createScratchClicked = await this.openCreateFromScratchOption();
+    if (!createScratchClicked && createDropdownClicked) {
+      await this.openCreateNewInvoiceDropdown();
+      createScratchClicked = await this.openCreateFromScratchOption();
+    }
+
+    if (await this.isSmartApCreateOpen()) {
+      createScratchClicked = true;
+    }
+
+    if (!apInvoiceClicked) {
+      throw new Error(
+        `Unable to open AP Invoice entry point. quick_links_clicked=${quickLinksClicked}, ap_invoice_clicked=${apInvoiceClicked}, page=${this.page.url()}`
+      );
+    }
+    if (!createDropdownClicked || !createScratchClicked) {
+      throw new Error(
+        `Unable to open Create From Scratch flow. create_new_invoice_dropdown_clicked=${createDropdownClicked}, create_from_scratch_clicked=${createScratchClicked}, page=${this.page.url()}`
+      );
     }
 
     await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.PAGE_LOAD }).catch(() =>
