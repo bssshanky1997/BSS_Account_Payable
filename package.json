@@ -1,0 +1,32 @@
+{
+  "name": "bss-account-payable",
+  "version": "1.0.0",
+  "description": "BirchStreet Account Payable Automation Framework using Playwright",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "test:ui": "npx playwright test --ui",
+    "test:login": "npx playwright test tests/Regression_Suite/TC001_login_landing_page.spec.ts",
+    "test:login:j4": "npx playwright test tests/Regression_Suite/TC001_login_landing_page.spec.ts",
+    "report": "npx playwright show-report reports/html-report",
+    "allure:generate": "npx allure generate reports/allure-results --clean -o reports/allure-report",
+    "allure:open": "npx allure open reports/allure-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^25.9.1",
+    "allure-playwright": "^3.0.0",
+    "dotenv": "^16.4.0",
+    "typescript": "^5.4.0"
+  },
+  "keywords": [
+    "playwright",
+    "automation",
+    "testing",
+    "birchstreet",
+    "account-payable"
+  ],
+  "author": "BirchStreet QA Team",
+  "license": "ISC"
+}
