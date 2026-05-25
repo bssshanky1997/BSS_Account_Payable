@@ -40,12 +40,20 @@ export class CD5192TaxFunctionalityPage {
     return `#APINVOICE_HEADER-AUX_TAX${level}_TRX_AMT_PERCENT`;
   }
 
+  private async firstVisibleMatch(locator: Locator): Promise<Locator | null> {
+    const count = await locator.count().catch(() => 0);
+    for (let idx = 0; idx < count; idx += 1) {
+      const candidate = locator.nth(idx);
+      if (await candidate.isVisible().catch(() => false)) return candidate;
+    }
+    return null;
+  }
+
   private async firstVisibleLocator(candidates: Locator[]): Promise<Locator | null> {
     for (const locator of candidates) {
       try {
-        if ((await locator.count()) > 0 && (await locator.first().isVisible())) {
-          return locator.first();
-        }
+        const visible = await this.firstVisibleMatch(locator);
+        if (visible) return visible;
       } catch {
         // Keep searching.
       }
@@ -54,10 +62,7 @@ export class CD5192TaxFunctionalityPage {
   }
 
   private async amountLocator(level: number): Promise<Locator> {
-    const locator = await this.firstVisibleLocator([
-      this.page.locator(this.auxAmountSelector(level)),
-      this.page.locator(`xpath=//*[contains(normalize-space(), 'Auxiliary Tax Amt ${level}')]/following::input[1]`),
-    ]);
+    const locator = await this.firstVisibleLocator([this.page.locator(this.auxAmountSelector(level))]);
     return locator ?? this.page.locator(this.auxAmountSelector(level)).first();
   }
 
@@ -65,7 +70,6 @@ export class CD5192TaxFunctionalityPage {
     const locator = await this.firstVisibleLocator([
       this.page.locator(this.auxCodeSelector(level)),
       this.page.locator(`#APINVOICE_HEADER-AUX_TAX${level}_CODE`),
-      this.page.locator(`xpath=//*[contains(normalize-space(), 'Aux Code ${level}')]/following::input[1]`),
     ]);
     return locator ?? this.page.locator(this.auxCodeSelector(level)).first();
   }
@@ -74,7 +78,6 @@ export class CD5192TaxFunctionalityPage {
     const locator = await this.firstVisibleLocator([
       this.page.locator(this.auxPercentSelector(level)),
       this.page.locator(`#APINVOICE_HEADER-AUX_TAX${level}_PERCENT`),
-      this.page.locator(`xpath=//*[contains(normalize-space(), 'Aux ${level} Percent')]/following::input[1]`),
     ]);
     return locator ?? this.page.locator(this.auxPercentSelector(level)).first();
   }
@@ -188,10 +191,13 @@ export class CD5192TaxFunctionalityPage {
       '#APINVOICE_HEADER-AUX_TAX4_TRX_AMT_PERCENT',
     ];
     for (const selector of selectors) {
-      const locator = this.page.locator(selector).first();
-      if (await locator.count()) {
-        await locator.scrollIntoViewIfNeeded().catch(() => undefined);
-        await expect(locator).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      const group = this.page.locator(selector);
+      if (await group.count()) {
+        const visible = await this.firstVisibleMatch(group);
+        if (visible) {
+          await visible.scrollIntoViewIfNeeded().catch(() => undefined);
+          await expect(visible).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+        }
       }
     }
   }

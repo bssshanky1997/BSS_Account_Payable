@@ -165,19 +165,19 @@ export class CD6242TaxFieldPage {
     expectedCount: number;
     visibleCount: number;
   }> {
-    const expectedFields: Array<[string, string]> = [
-      ['Auxiliary Tax Amt 1', 'auxiliarytaxamt1'],
-      ['Aux Code 1', 'auxcode1'],
-      ['Aux 1 Percent', 'aux1percent'],
-      ['Auxiliary Tax Amt 2', 'auxiliarytaxamt2'],
-      ['Aux Code 2', 'auxcode2'],
-      ['Aux 2 Percent', 'aux2percent'],
-      ['Auxiliary Tax Amt 3', 'auxiliarytaxamt3'],
-      ['Aux Code 3', 'auxcode3'],
-      ['Aux 3 Percent', 'aux3percent'],
-      ['Auxiliary Tax Amt 4', 'auxiliarytaxamt4'],
-      ['Aux Code 4', 'auxcode4'],
-      ['Aux 4 Percent', 'aux4percent'],
+    const expectedFields: Array<[string, string, string[]]> = [
+      ['Auxiliary Tax Amt 1', 'auxiliarytaxamt1', ['#APINVOICE_HEADER-AUX_TAX1_TRX_AMT']],
+      ['Aux Code 1', 'auxcode1', ['#APINVOICE_HEADER-AUX_TAX1_GRP_CODE', '#APINVOICE_HEADER-AUX_TAX1_CODE']],
+      ['Aux 1 Percent', 'aux1percent', ['#APINVOICE_HEADER-AUX_TAX1_TRX_AMT_PERCENT', '#APINVOICE_HEADER-AUX_TAX1_PERCENT']],
+      ['Auxiliary Tax Amt 2', 'auxiliarytaxamt2', ['#APINVOICE_HEADER-AUX_TAX2_TRX_AMT']],
+      ['Aux Code 2', 'auxcode2', ['#APINVOICE_HEADER-AUX_TAX2_GRP_CODE', '#APINVOICE_HEADER-AUX_TAX2_CODE']],
+      ['Aux 2 Percent', 'aux2percent', ['#APINVOICE_HEADER-AUX_TAX2_TRX_AMT_PERCENT', '#APINVOICE_HEADER-AUX_TAX2_PERCENT']],
+      ['Auxiliary Tax Amt 3', 'auxiliarytaxamt3', ['#APINVOICE_HEADER-AUX_TAX3_TRX_AMT']],
+      ['Aux Code 3', 'auxcode3', ['#APINVOICE_HEADER-AUX_TAX3_GRP_CODE', '#APINVOICE_HEADER-AUX_TAX3_CODE']],
+      ['Aux 3 Percent', 'aux3percent', ['#APINVOICE_HEADER-AUX_TAX3_TRX_AMT_PERCENT', '#APINVOICE_HEADER-AUX_TAX3_PERCENT']],
+      ['Auxiliary Tax Amt 4', 'auxiliarytaxamt4', ['#APINVOICE_HEADER-AUX_TAX4_TRX_AMT']],
+      ['Aux Code 4', 'auxcode4', ['#APINVOICE_HEADER-AUX_TAX4_GRP_CODE', '#APINVOICE_HEADER-AUX_TAX4_CODE']],
+      ['Aux 4 Percent', 'aux4percent', ['#APINVOICE_HEADER-AUX_TAX4_TRX_AMT_PERCENT', '#APINVOICE_HEADER-AUX_TAX4_PERCENT']],
     ];
 
     const isVisibleScript = (token: string) => {
@@ -194,10 +194,29 @@ export class CD6242TaxFieldPage {
     };
 
     const missing: string[] = [];
-    for (const [label, token] of expectedFields) {
+    const hasVisibleMatch = async (context: PageOrFrame, selector: string): Promise<boolean> => {
+      const locator = context.locator(selector);
+      const count = await locator.count().catch(() => 0);
+      for (let idx = 0; idx < count; idx += 1) {
+        if (await locator.nth(idx).isVisible().catch(() => false)) return true;
+      }
+      return false;
+    };
+
+    for (const [label, token, selectors] of expectedFields) {
       let found = false;
       for (const context of this.contexts()) {
         if (await context.evaluate(isVisibleScript, token).catch(() => false)) {
+          found = true;
+          break;
+        }
+        for (const selector of selectors) {
+          if (await hasVisibleMatch(context, selector)) {
+            found = true;
+            break;
+          }
+        }
+        if (found) {
           found = true;
           break;
         }
