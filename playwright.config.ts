@@ -1,6 +1,6 @@
 import path from 'path';
 import dotenv from 'dotenv';
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 import { getEnvConfig } from './config/qa.env';
 
 dotenv.config({
@@ -75,11 +75,8 @@ export default defineConfig({
     actionTimeout: 30000,
     navigationTimeout: 60000,
 
-    /* Stable Jenkins resolution */
-    viewport: {
-      width: 1920,
-      height: 1080
-    },
+    /* Use actual browser window size (works with --start-maximized) */
+    viewport: null,
 
     /* Ignore SSL */
     ignoreHTTPSErrors: true,
@@ -106,10 +103,6 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-
-      use: {
-        ...devices['Desktop Chrome'],
-      },
     },
   ],
 });

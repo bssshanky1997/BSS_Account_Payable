@@ -9,7 +9,7 @@ import { getEnvConfig } from '../config/qa.env';
 async function globalSetup(_config: FullConfig): Promise<void> {
   const envConfig = getEnvConfig();
   const { username, password, subscriberId } = envConfig;
-  const loginUrl = new URL('/j4/login.jsp', envConfig.baseURL).toString();
+  const loginUrl = 'https://appqa.birchstreet.co/j4/login.jsp';
   const authStatePath = 'playwright/.auth/user.json';
 
   if (!username || !password || !subscriberId) {
@@ -18,8 +18,13 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     );
   }
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const browser = await chromium.launch({
+    args: ['--start-maximized'],
+  });
+  const context = await browser.newContext({
+    viewport: null,
+  });
+  const page = await context.newPage();
 
   await page.goto(loginUrl, {
     waitUntil: 'domcontentloaded',
