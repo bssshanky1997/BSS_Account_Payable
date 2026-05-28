@@ -130,22 +130,38 @@ export class CD6242TaxFieldPage {
       apInvoiceClicked = await this.clickTextOrHrefInPage(['ap invoice', 'a/p invoice', 'ap invoice list'], ['apinvoice', 'invoice']);
     }
 
-    let createDropdownClicked = await this.clickCreateNewInvoiceDropdown();
-    if (!createDropdownClicked) {
-      await this.settle(500);
-      createDropdownClicked = await this.clickCreateNewInvoiceDropdown();
-    }
+    const isSmartApUrl = () => this.page.url().toLowerCase().includes('smartap.jsp');
+    const directSmartApNavigation = isSmartApUrl();
 
-    let createScratchClicked = await this.clickCreateFromScratchOption();
-    if (!createScratchClicked && createDropdownClicked) {
-      await this.clickCreateNewInvoiceDropdown();
+    let createDropdownClicked = false;
+    let createScratchClicked = false;
+    if (directSmartApNavigation) {
+      // Some environments navigate directly to SmartAP create mode from Quick Links/AP Invoice.
+      apInvoiceClicked = true;
+      createDropdownClicked = true;
+      createScratchClicked = true;
+    } else {
+      createDropdownClicked = await this.clickCreateNewInvoiceDropdown();
+      if (!createDropdownClicked) {
+        await this.settle(500);
+        createDropdownClicked = await this.clickCreateNewInvoiceDropdown();
+      }
+
       createScratchClicked = await this.clickCreateFromScratchOption();
+      if (!createScratchClicked && createDropdownClicked) {
+        await this.clickCreateNewInvoiceDropdown();
+        createScratchClicked = await this.clickCreateFromScratchOption();
+      }
     }
 
     await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.PAGE_LOAD }).catch(() => undefined);
     await this.settle(900);
     const smartApOpened = this.page.url().toLowerCase().includes('smartap.jsp');
-    if (smartApOpened) createScratchClicked = true;
+    if (smartApOpened) {
+      apInvoiceClicked = true;
+      createDropdownClicked = true;
+      createScratchClicked = true;
+    }
 
     if (!apInvoiceClicked) {
       throw new Error(

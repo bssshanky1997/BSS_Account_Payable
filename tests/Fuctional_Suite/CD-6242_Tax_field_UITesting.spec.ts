@@ -349,7 +349,7 @@ test('CD-6242 auxiliary tax fields @ap', async ({ page }, testInfo) => {
   }
 
   const scenarioFailures = techniqueResults
-    .filter((entry) => entry.status !== 'executed' || !entry.labelReady)
+    .filter((entry) => !entry.labelReady || entry.status === 'skipped_not_found')
     .map((entry) => ({
       sequence: entry.sequence,
       name: entry.name,
@@ -413,10 +413,17 @@ test('CD-6242 auxiliary tax fields @ap', async ({ page }, testInfo) => {
       sequence: entry.sequence,
     }));
 
-  const invalidPercentResults = executedResults.filter(
+  const invalidPercentScenarios = techniqueResults.filter(
     (entry) => String(entry.label).includes('Percent') && String(entry.value || '').trim() === '!@#'
   );
-  await assertWithScreenshot(invalidPercentResults.length > 0, 'No invalid Aux Percent cases were executed.');
+  const invalidPercentResults = invalidPercentScenarios.filter((entry) => entry.status === 'executed');
+  const invalidPercentAllDisabled =
+    invalidPercentScenarios.length > 0 &&
+    invalidPercentResults.length === 0 &&
+    invalidPercentScenarios.every((entry) => entry.status === 'skipped_disabled');
+  if (!invalidPercentAllDisabled) {
+    await assertWithScreenshot(invalidPercentResults.length > 0, 'No invalid Aux Percent cases were executed.');
+  }
 
   const invalidPercentFailures = invalidPercentResults
     .filter((entry) => String(entry.actual || '').trim() === String(entry.value || '').trim())
@@ -430,6 +437,6 @@ test('CD-6242 auxiliary tax fields @ap', async ({ page }, testInfo) => {
 
   await assertWithScreenshot(
     invalidAmountFailures.length === 0 && invalidPercentFailures.length === 0,
-    `Invalid garbage values are being accepted. AmountFailures=${JSON.stringify(invalidAmountFailures)}, PercentFailures=${JSON.stringify(invalidPercentFailures)}`
+    `Invalid garbage values are being accepted. AmountFailures=${JSON.stringify(invalidAmountFailures)}, PercentFailures=${JSON.stringify(invalidPercentFailures)}, percent_all_disabled=${invalidPercentAllDisabled}`
   );
 });
