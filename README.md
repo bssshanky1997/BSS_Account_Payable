@@ -62,12 +62,6 @@ Run headed:
 npm run test:headed
 ```
 
-Run only login regression:
-
-```bash
-npx playwright test tests/Regression_Suite/TC001_login_landing_page.spec.ts
-```
-
 ## Reports
 
 Show HTML report:

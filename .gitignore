@@ -7,5 +7,7 @@ reports/allure-results/
 reports/allure-report/
 *.env
 .env
+java/target/
+screenshots/
 .DS_Store
 Thumbs.db

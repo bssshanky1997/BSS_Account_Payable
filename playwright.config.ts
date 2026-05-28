@@ -54,7 +54,7 @@ export default defineConfig({
   use: {
 
     /* Headless for Jenkins */
-    headless: true,
+    headless: false,
 
     /* Application URL */
     baseURL: envConfig.baseURL,
