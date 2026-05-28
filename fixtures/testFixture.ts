@@ -1,5 +1,6 @@
 import { test as base } from '@playwright/test';
 import { ApiHelper } from '../utils/apiHelper';
+import { PositionRightsApi } from '../utils/positionRightsApi';
 import { getScreenshotPathForTest, getTestCaseFolderName } from '../utils/screenshotPath';
 
 /**
@@ -15,6 +16,7 @@ import { getScreenshotPathForTest, getTestCaseFolderName } from '../utils/screen
 // Extend the fixture types
 type BssFixtures = {
   apiHelper: ApiHelper;
+  positionRightsApi: PositionRightsApi;
 };
 
 export const test = base.extend<BssFixtures>({
@@ -42,6 +44,14 @@ export const test = base.extend<BssFixtures>({
   /** ApiHelper fixture - auto-initializes and disposes */
   apiHelper: async ({}, use) => {
     const api = new ApiHelper();
+    await api.init();
+    await use(api);
+    await api.dispose();
+  },
+
+  /** PositionRightsApi fixture - uses DocumentLoad/DocumentSave flow */
+  positionRightsApi: async ({}, use) => {
+    const api = new PositionRightsApi();
     await api.init();
     await use(api);
     await api.dispose();

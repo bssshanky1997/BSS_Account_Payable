@@ -48,6 +48,14 @@ $env:BASE_URL = "https://appqa.birchstreet.co"
 $env:API_BASE_URL = "https://qa-api.birchstreet.net"
 ```
 
+For Right ID API automation (Admin Position screen 10523 via `DocumentLoad.jsp`/`DocumentSave.jsp`), optional vars:
+
+```bash
+$env:RIGHTS_POSITION_ID = "2"
+$env:RIGHTS_TARGET_ID = "4051"
+$env:RIGHTS_APPLICATION_NAME = "PROCUREMENT"
+```
+
 ## Running Tests
 
 Run all tests:
