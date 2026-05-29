@@ -5,6 +5,15 @@ import { getEnvConfig } from '../config/qa.env';
 
 const LOGIN_PATH = '/j4/login.jsp';
 const DEFAULT_PATH = '/j4/default.jsp';
+const PLACEHOLDER_AUTH_VALUES = new Set([
+  'your_username',
+  'your_password',
+  'your_subscriber_id',
+  'changeme',
+]);
+
+const hasPlaceholderCredential = (value: string): boolean =>
+  PLACEHOLDER_AUTH_VALUES.has(value.trim().toLowerCase());
 
 export const AUTH_STATE_PATH = '.auth/user.json';
 export const AUTH_STATE_ABS_PATH = path.resolve(process.cwd(), AUTH_STATE_PATH);
@@ -18,7 +27,13 @@ const waitForPostLogin = async (page: Page): Promise<void> => {
 
 export const hasAuthCredentials = (): boolean => {
   const envConfig = getEnvConfig();
-  return !!(envConfig.username && envConfig.password && envConfig.subscriberId);
+  if (!envConfig.username || !envConfig.password || !envConfig.subscriberId) return false;
+
+  return !(
+    hasPlaceholderCredential(envConfig.username) ||
+    hasPlaceholderCredential(envConfig.password) ||
+    hasPlaceholderCredential(envConfig.subscriberId)
+  );
 };
 
 const resolveUrl = (routeOrUrl: string, baseURL: string): string => {
@@ -38,7 +53,9 @@ export const isLoginScreenVisible = async (page: Page, timeoutMs = 2500): Promis
 export const loginWithCredentials = async (page: Page, baseURL?: string): Promise<void> => {
   const envConfig = getEnvConfig();
   if (!hasAuthCredentials()) {
-    throw new Error('Missing USERNAME, PASSWORD, or SUBSCRIBER_ID for authentication.');
+    throw new Error(
+      'Missing valid USERNAME, PASSWORD, or SUBSCRIBER_ID for authentication. Ensure .env contains real credentials and not placeholder values.'
+    );
   }
 
   const resolvedBaseUrl = baseURL ?? envConfig.baseURL;

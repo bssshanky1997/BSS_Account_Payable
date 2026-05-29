@@ -39,7 +39,7 @@ export default defineConfig({
   reporter: [
     ['html', {
       outputFolder: 'reports/html-report',
-      open: 'never'
+      open: 'always'
     }],
     ['list'],
     ['allure-playwright', {

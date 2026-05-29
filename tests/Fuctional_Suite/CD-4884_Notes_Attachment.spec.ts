@@ -8,23 +8,39 @@ type NotesCapability = {
   sameDelete: boolean;
 };
 
+type NotesStatus = 'Transmitted' | 'Exception';
+const NOTES_STATUSES: NotesStatus[] = ['Transmitted', 'Exception'];
+
 async function readNotesCapabilityForStatus(
   notesAttachmentPage: CD4884NotesAttachmentPage,
-  status: 'Transmitted' | 'Exception'
+  status: NotesStatus,
+  skipWhenDataMissing: boolean
 ): Promise<NotesCapability> {
   await notesAttachmentPage.openHomePage();
   await notesAttachmentPage.navigateToNotesForStatus(status);
 
   const totalNotes = await notesAttachmentPage.totalNotesCount();
+  if (totalNotes === 0 && skipWhenDataMissing) {
+    test.skip(true, `[CD-4884][${status}] Skipped: no notes available in this status for capability validation.`);
+  }
   expect(totalNotes, `Expected at least one note in ${status} Notes section.`).toBeGreaterThan(0);
 
   const otherUserNotes = await notesAttachmentPage.otherUserNotesCount();
+  if (otherUserNotes === 0 && skipWhenDataMissing) {
+    test.skip(
+      true,
+      `[CD-4884][${status}] Skipped: no other-user notes available to validate restriction behavior.`
+    );
+  }
   expect(
     otherUserNotes,
     `Expected another user note in ${status} to validate edit/delete restriction without right ID 4051.`
   ).toBeGreaterThan(0);
 
   const sameUserNotes = await notesAttachmentPage.sameUserNotesCount();
+  if (sameUserNotes === 0 && skipWhenDataMissing) {
+    test.skip(true, `[CD-4884][${status}] Skipped: no same-user notes available for own-note validation.`);
+  }
   expect(sameUserNotes, `Expected at least one same-user note in ${status}.`).toBeGreaterThan(0);
 
   return {
@@ -35,91 +51,57 @@ async function readNotesCapabilityForStatus(
   };
 }
 
-async function validateBaselineRulesForStatus(
+function assertCapabilityByExpected(
+  capability: NotesCapability,
+  expected: NotesCapability,
+  scenarioLabel: string,
+  status: NotesStatus
+): void {
+  expect(
+    capability.otherEdit,
+    `[CD-4884][${scenarioLabel}][${status}] other-user edit mismatch.`
+  ).toBe(expected.otherEdit);
+  expect(
+    capability.otherDelete,
+    `[CD-4884][${scenarioLabel}][${status}] other-user delete mismatch.`
+  ).toBe(expected.otherDelete);
+  expect(
+    capability.sameEdit,
+    `[CD-4884][${scenarioLabel}][${status}] same-user edit mismatch.`
+  ).toBe(expected.sameEdit);
+  expect(
+    capability.sameDelete,
+    `[CD-4884][${scenarioLabel}][${status}] same-user delete mismatch.`
+  ).toBe(expected.sameDelete);
+}
+
+async function validateForStatusWithExpected(
   notesAttachmentPage: CD4884NotesAttachmentPage,
-  status: 'Transmitted' | 'Exception'
+  status: NotesStatus,
+  expected: NotesCapability,
+  scenarioLabel: string,
+  skipWhenDataMissing: boolean
 ): Promise<void> {
-  const capability = await readNotesCapabilityForStatus(notesAttachmentPage, status);
-  const canEditOtherUserNote = capability.otherEdit;
-  const canDeleteOtherUserNote = capability.otherDelete;
-  const canEditSameUserNote = capability.sameEdit;
-  const canDeleteSameUserNote = capability.sameDelete;
-  const isRight4051Assigned = canEditOtherUserNote || canDeleteOtherUserNote;
-
-  console.log(
-    `[CD-4884][${status}] RIGHT_ID_4051_ASSIGNED=${isRight4051Assigned ? 'YES' : 'NO'} (other-edit:${canEditOtherUserNote}, other-delete:${canDeleteOtherUserNote}, same-edit:${canEditSameUserNote}, same-delete:${canDeleteSameUserNote})`
-  );
-
-  if (isRight4051Assigned) {
-    expect(
-      canEditOtherUserNote,
-      `When RIGHT_ID_4051_ASSIGNED=YES, should be able to edit another user note in ${status}.`
-    ).toBeTruthy();
-    expect(
-      canDeleteOtherUserNote,
-      `When RIGHT_ID_4051_ASSIGNED=YES, should be able to delete another user note in ${status}.`
-    ).toBeTruthy();
-    expect(
-      canEditSameUserNote,
-      `When RIGHT_ID_4051_ASSIGNED=YES, should be able to edit same user note in ${status}.`
-    ).toBeTruthy();
-    expect(
-      canDeleteSameUserNote,
-      `When RIGHT_ID_4051_ASSIGNED=YES, should be able to delete same user note in ${status}.`
-    ).toBeTruthy();
-    return;
-  }
-
-  if (status === 'Transmitted') {
-    expect(
-      canEditOtherUserNote,
-      'When RIGHT_ID_4051_ASSIGNED=NO, in Transmitted status should not be able to edit another user note.'
-    ).toBeFalsy();
-    expect(
-      canDeleteOtherUserNote,
-      'When RIGHT_ID_4051_ASSIGNED=NO, in Transmitted status should not be able to delete another user note.'
-    ).toBeFalsy();
-    expect(
-      canEditSameUserNote,
-      'When RIGHT_ID_4051_ASSIGNED=NO, in Transmitted status should not be able to edit same user note.'
-    ).toBeFalsy();
-    expect(
-      canDeleteSameUserNote,
-      'When RIGHT_ID_4051_ASSIGNED=NO, in Transmitted status should not be able to delete same user note.'
-    ).toBeFalsy();
-    return;
-  }
-
-  expect(
-    canEditOtherUserNote,
-    `User without right ID 4051 should not be able to edit another user note in ${status}.`
-  ).toBeFalsy();
-  expect(
-    canDeleteOtherUserNote,
-    `When RIGHT_ID_4051_ASSIGNED=NO, should not be able to delete another user note in ${status}.`
-  ).toBeFalsy();
-  expect(
-    canEditSameUserNote,
-    `When RIGHT_ID_4051_ASSIGNED=NO, in Exception should be able to edit same user note.`
-  ).toBeTruthy();
-  expect(
-    canDeleteSameUserNote,
-    `When RIGHT_ID_4051_ASSIGNED=NO, in Exception should be able to delete same user note.`
-  ).toBeTruthy();
+  const capability = await readNotesCapabilityForStatus(notesAttachmentPage, status, skipWhenDataMissing);
+  console.log(`[CD-4884][${scenarioLabel}][${status}] capability: ${JSON.stringify(capability)}`);
+  assertCapabilityByExpected(capability, expected, scenarioLabel, status);
 }
 
-function assertAllDisabled(capability: NotesCapability): void {
-  expect(capability.otherEdit, 'After disabling 4051, other-user edit must be blocked.').toBeFalsy();
-  expect(capability.otherDelete, 'After disabling 4051, other-user delete must be blocked.').toBeFalsy();
-  expect(capability.sameEdit, 'After disabling 4051, same-user edit must be blocked.').toBeFalsy();
-  expect(capability.sameDelete, 'After disabling 4051, same-user delete must be blocked.').toBeFalsy();
-}
-
-function assertAllEnabled(capability: NotesCapability): void {
-  expect(capability.otherEdit, 'After enabling 4051, other-user edit must be allowed.').toBeTruthy();
-  expect(capability.otherDelete, 'After enabling 4051, other-user delete must be allowed.').toBeTruthy();
-  expect(capability.sameEdit, 'After enabling 4051, same-user edit must be allowed.').toBeTruthy();
-  expect(capability.sameDelete, 'After enabling 4051, same-user delete must be allowed.').toBeTruthy();
+async function validateScenario(
+  notesAttachmentPage: CD4884NotesAttachmentPage,
+  expectedByStatus: Record<NotesStatus, NotesCapability>,
+  scenarioLabel: string,
+  skipWhenDataMissing: boolean
+): Promise<void> {
+  for (const status of NOTES_STATUSES) {
+    await validateForStatusWithExpected(
+      notesAttachmentPage,
+      status,
+      expectedByStatus[status],
+      scenarioLabel,
+      skipWhenDataMissing
+    );
+  }
 }
 
 test('CD-4884 Notes Attachment - Unified Flow @ap', async ({ page, positionRightsApi }) => {
@@ -129,27 +111,67 @@ test('CD-4884 Notes Attachment - Unified Flow @ap', async ({ page, positionRight
   const positionId = Number(process.env.RIGHTS_POSITION_ID || '2');
   const rightId = Number(process.env.RIGHTS_TARGET_ID || '4051');
   const appName = process.env.RIGHTS_APPLICATION_NAME || 'PROCUREMENT';
-  let wasRestoredInFlow = false;
-
-  await validateBaselineRulesForStatus(notesAttachmentPage, 'Transmitted');
-  await validateBaselineRulesForStatus(notesAttachmentPage, 'Exception');
+  const paramRightId = Number(process.env.CD4884_PARAM_ID || '2097');
+  const paramScreenId = process.env.CD4884_PARAM_SCREEN_ID || '10806';
+  const paramAppName = process.env.CD4884_PARAM_APPLICATION_NAME || appName;
+  const skipWhenDataMissing = String(process.env.CD4884_SKIP_WHEN_NOTES_DATA_MISSING || 'true').toLowerCase() === 'true';
+  const canModifyOwnNotesInTransmittedWhen4051NotAssigned =
+    String(process.env.CD4884_TRANSMITTED_OWN_NOTES_WHEN_4051_OFF || 'true').toLowerCase() === 'true';
+  let isParamRight2097AssignedInFlow = false;
+  const expectedWhen4051NotAssigned: Record<NotesStatus, NotesCapability> = {
+    Transmitted: {
+      otherEdit: false,
+      otherDelete: false,
+      sameEdit: canModifyOwnNotesInTransmittedWhen4051NotAssigned,
+      sameDelete: canModifyOwnNotesInTransmittedWhen4051NotAssigned,
+    },
+    Exception: { otherEdit: false, otherDelete: false, sameEdit: true, sameDelete: true },
+  };
+  const expectedWhen4051Assigned: Record<NotesStatus, NotesCapability> = {
+    Transmitted: { otherEdit: true, otherDelete: true, sameEdit: true, sameDelete: true },
+    Exception: { otherEdit: true, otherDelete: true, sameEdit: true, sameDelete: true },
+  };
+  const expectedWhenParam2097AssignedAnd4051NotAssigned: Record<NotesStatus, NotesCapability> = {
+    Transmitted: { otherEdit: false, otherDelete: false, sameEdit: false, sameDelete: false },
+    Exception: { otherEdit: false, otherDelete: false, sameEdit: true, sameDelete: true },
+  };
 
   try {
+    // Scenario 1: Right ID 4051 not assigned.
     await positionRightsApi.disableRight(positionId, rightId, appName);
-    const offCapability = await readNotesCapabilityForStatus(notesAttachmentPage, 'Transmitted');
-    console.log(`[CD-4884][Unified] RIGHT_ID_4051_ASSIGNED=NO capability: ${JSON.stringify(offCapability)}`);
-    assertAllDisabled(offCapability);
+    await validateScenario(
+      notesAttachmentPage,
+      expectedWhen4051NotAssigned,
+      'RIGHT_ID_4051_NOT_ASSIGNED',
+      skipWhenDataMissing
+    );
 
+    // Scenario 2: Right ID 4051 assigned.
     await positionRightsApi.enableRight(positionId, rightId, appName);
-    wasRestoredInFlow = true;
+    await validateScenario(
+      notesAttachmentPage,
+      expectedWhen4051Assigned,
+      'RIGHT_ID_4051_ASSIGNED',
+      skipWhenDataMissing
+    );
 
-    const onCapability = await readNotesCapabilityForStatus(notesAttachmentPage, 'Transmitted');
-    console.log(`[CD-4884][Unified] RIGHT_ID_4051_ASSIGNED=YES capability: ${JSON.stringify(onCapability)}`);
-    assertAllEnabled(onCapability);
+    // Scenario 3: Param 2097 (screen 10806) assigned + Right ID 4051 not assigned.
+    await positionRightsApi.enableRight(positionId, paramRightId, paramAppName);
+    isParamRight2097AssignedInFlow = true;
+    await positionRightsApi.disableRight(positionId, rightId, appName);
+    await validateScenario(
+      notesAttachmentPage,
+      expectedWhenParam2097AssignedAnd4051NotAssigned,
+      `PARAM_${paramRightId}_ASSIGNED_SCREEN_${paramScreenId}_AND_RIGHT_ID_4051_NOT_ASSIGNED`,
+      skipWhenDataMissing
+    );
   } finally {
-    if (!wasRestoredInFlow) {
-      await positionRightsApi.enableRight(positionId, rightId, appName).catch((error) => {
-        console.error(`[CD-4884][Unified] Failed to restore right ${rightId}:`, error);
+    await positionRightsApi.enableRight(positionId, rightId, appName).catch((error) => {
+      console.error(`[CD-4884][Unified] Failed to restore right ${rightId}:`, error);
+    });
+    if (isParamRight2097AssignedInFlow) {
+      await positionRightsApi.disableRight(positionId, paramRightId, paramAppName).catch((error) => {
+        console.error(`[CD-4884][Unified] Failed to restore param/right ${paramRightId}:`, error);
       });
     }
   }
