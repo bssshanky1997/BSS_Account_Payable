@@ -3,8 +3,15 @@ import dotenv from 'dotenv';
 import { defineConfig } from '@playwright/test';
 import { getEnvConfig } from './config/qa.env';
 
+const requestedEnv = (process.env.TEST_ENV || 'qa').trim().toLowerCase();
+const envFileByName: Record<string, string> = {
+  qa: '.env',
+  uat: '.env.uat',
+};
+const resolvedEnvFile = envFileByName[requestedEnv] || '.env';
+
 dotenv.config({
-  path: path.resolve(__dirname, '.env'),
+  path: path.resolve(__dirname, resolvedEnvFile),
   override: true
 });
 
