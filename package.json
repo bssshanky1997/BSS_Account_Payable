@@ -9,6 +9,8 @@
     "test:ui": "npx playwright test --ui",
     "debug:login": "node scripts/validate-login.js",
     "report": "npx playwright show-report reports/html-report",
+    "report:excel": "node scripts/generate-excel-report.js",
+    "setup:scheduler": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup-playwright-task.ps1",
     "allure:generate": "npx allure generate reports/allure-results --clean -o reports/allure-report",
     "allure:open": "npx allure open reports/allure-report"
   },
@@ -17,7 +19,8 @@
     "@types/node": "^25.9.1",
     "allure-playwright": "^3.0.0",
     "dotenv": "^16.4.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "xlsx": "^0.18.5"
   },
   "keywords": [
     "playwright",

@@ -16,6 +16,8 @@ dotenv.config({
 });
 
 const envConfig = getEnvConfig();
+const isScheduledRun = process.env.SCHEDULED_RUN === 'true';
+const isHeadlessRequested = process.env.PW_HEADLESS === 'true';
 
 export default defineConfig({
 
@@ -46,7 +48,10 @@ export default defineConfig({
   reporter: [
     ['html', {
       outputFolder: 'reports/html-report',
-      open: 'always'
+      open: isScheduledRun ? 'never' : 'always'
+    }],
+    ['json', {
+      outputFile: 'reports/json-report/results.json'
     }],
     ['list'],
     ['allure-playwright', {
@@ -60,8 +65,8 @@ export default defineConfig({
   /* Shared settings */
   use: {
 
-    /* Headless for Jenkins */
-    headless: false,
+    /* Keep local behavior, allow scheduler/Jenkins override via env variables */
+    headless: isHeadlessRequested,
 
     /* Application URL */
     baseURL: envConfig.baseURL,
