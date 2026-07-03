@@ -6,7 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 async function run() {
   const baseUrl = process.env.BASE_URL || 'https://appqa.birchstreet.co';
-  const targetUrl = `${baseUrl}/j4/agscreen.jsp?screenid=10806&dt=${Date.now()}`;
+  const targetUrl = `${baseUrl}/j4/agscreen.jsp?screenid=10267&dt=${Date.now()}`;
   const headless = String(process.env.HEADLESS || 'false').toLowerCase() === 'true';
 
   const browser = await chromium.launch({

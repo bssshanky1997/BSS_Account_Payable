@@ -1,10 +1,15 @@
 param(
     [string]$TaskName = "Playwright_Daily_10PM",
-    [string]$TaskUser = "CORP\shpandey",
-    [string]$ScriptPath = "C:\Users\shpandey.CORP\Playwrights_Framework\Bss_AccountPayable\run-playwright-daily.ps1"
+    [string]$TaskUser = "$env:USERDOMAIN\$env:USERNAME",
+    [string]$ScriptPath = "",
+    [switch]$PromptForCredentials = $true
 )
 
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($ScriptPath)) {
+    $ScriptPath = Join-Path $PSScriptRoot "run-playwright-daily.ps1"
+}
 
 if (!(Test-Path $ScriptPath)) {
     throw "Runner script not found: $ScriptPath"
@@ -14,16 +19,16 @@ if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
+$resolvedScriptPath = (Resolve-Path $ScriptPath).Path
+$scriptDirectory = Split-Path -Parent $resolvedScriptPath
+$powershellExe = Join-Path $PSHOME "powershell.exe"
+
 $action = New-ScheduledTaskAction `
-    -Execute "powershell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
+    -Execute $powershellExe `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$resolvedScriptPath`"" `
+    -WorkingDirectory $scriptDirectory
 
 $trigger = New-ScheduledTaskTrigger -Daily -At 10:00PM
-
-$principal = New-ScheduledTaskPrincipal `
-    -UserId $TaskUser `
-    -LogonType Password `
-    -RunLevel Highest
 
 $settings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable `
@@ -32,13 +37,35 @@ $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
     -ExecutionTimeLimit (New-TimeSpan -Hours 4)
 
+if (-not $PromptForCredentials) {
+    throw "Credential prompt disabled. Provide a credential-capable registration flow for -LogonType Password."
+}
+
+$credential = Get-Credential -UserName $TaskUser -Message "Enter credentials for scheduled task: $TaskName"
+if (-not $credential) {
+    throw "Task registration cancelled. No credentials provided."
+}
+
+$credentialPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($credential.Password)
+try {
+    $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($credentialPtr)
+}
+finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($credentialPtr)
+}
+
 Register-ScheduledTask `
     -TaskName $TaskName `
     -Action $action `
     -Trigger $trigger `
-    -Principal $principal `
-    -Settings $settings
+    -Settings $settings `
+    -User $credential.UserName `
+    -Password $plainPassword `
+    -RunLevel Highest `
+    -Force
 
 Write-Host "Task created successfully: $TaskName"
+Write-Host "Task user: $($credential.UserName)"
+Write-Host "Runner script: $resolvedScriptPath"
 Write-Host "Use this to test immediately:"
 Write-Host "Start-ScheduledTask -TaskName `"$TaskName`""

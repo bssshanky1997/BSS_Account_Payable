@@ -6,7 +6,7 @@ const { request } = require('@playwright/test');
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 async function run() {
-  const screenId = process.argv[2] || '10806';
+  const screenId = process.argv[2] || '10267';
   const keywords = ['2097', 'param', 'DocumentSave.jsp', 'DocumentLoad.jsp', 'agscreen.jsp', 'right'];
   const baseUrl = process.env.BASE_URL || 'https://appqa.birchstreet.co';
 

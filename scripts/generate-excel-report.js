@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 
 const args = process.argv.slice(2);
 
@@ -26,6 +26,112 @@ function formatSeconds(ms) {
 function safeReadJson(filePath) {
   if (!fs.existsSync(filePath)) return null;
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function normalizeCellValue(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Set) return Array.from(value).join(', ');
+  if (Array.isArray(value)) return value.join(', ');
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    }
+    catch (_error) {
+      return String(value);
+    }
+  }
+  return value;
+}
+
+function getHeadersFromRows(rows) {
+  const headers = [];
+  const seen = new Set();
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    for (const key of Object.keys(row)) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      headers.push(key);
+    }
+  }
+  return headers;
+}
+
+function addWorksheetFromJson(workbook, sheetName, rows) {
+  const worksheet = workbook.addWorksheet(sheetName);
+  const safeRows = Array.isArray(rows) && rows.length ? rows : [{}];
+  const headers = getHeadersFromRows(safeRows);
+
+  if (!headers.length) {
+    worksheet.addRow(['']);
+    return worksheet;
+  }
+
+  worksheet.columns = headers.map((header) => ({ header, key: header }));
+
+  for (const row of safeRows) {
+    const normalizedRow = {};
+    for (const header of headers) {
+      normalizedRow[header] = normalizeCellValue(row && Object.prototype.hasOwnProperty.call(row, header) ? row[header] : '');
+    }
+    worksheet.addRow(normalizedRow);
+  }
+
+  return worksheet;
+}
+
+function normalizeWorksheetCellValue(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'object') {
+    if (Object.prototype.hasOwnProperty.call(value, 'result')) return value.result;
+    if (Object.prototype.hasOwnProperty.call(value, 'text')) return value.text;
+    if (Array.isArray(value.richText)) {
+      return value.richText.map((part) => part.text || '').join('');
+    }
+    try {
+      return JSON.stringify(value);
+    }
+    catch (_error) {
+      return String(value);
+    }
+  }
+  return value;
+}
+
+function worksheetToJson(worksheet) {
+  if (!worksheet || worksheet.rowCount < 1) return [];
+  const headerRow = worksheet.getRow(1);
+  const headers = [];
+
+  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+    const headerValue = String(normalizeWorksheetCellValue(cell.value) || '').trim();
+    if (headerValue) headers[colNumber] = headerValue;
+  });
+
+  if (!headers.length) return [];
+
+  const rows = [];
+  for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+    const row = worksheet.getRow(rowNumber);
+    if (!row.hasValues) continue;
+
+    const rowData = {};
+    let hasAtLeastOneValue = false;
+
+    for (let colNumber = 1; colNumber < headers.length; colNumber += 1) {
+      const header = headers[colNumber];
+      if (!header) continue;
+      const value = normalizeWorksheetCellValue(row.getCell(colNumber).value);
+      rowData[header] = value;
+      if (value !== '') hasAtLeastOneValue = true;
+    }
+
+    if (hasAtLeastOneValue) rows.push(rowData);
+  }
+
+  return rows;
 }
 
 function collectTests(suites, records, parentSuite = '') {
@@ -61,6 +167,99 @@ function collectTests(suites, records, parentSuite = '') {
 
     collectTests(suite.suites, records, suiteTitle);
   }
+}
+
+function walkFiles(dirPath, collector) {
+  if (!fs.existsSync(dirPath)) return;
+
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const fullPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(fullPath, collector);
+      continue;
+    }
+    collector(fullPath);
+  }
+}
+
+function isPotentialTestFile(filePath) {
+  const normalized = filePath.replace(/\\/g, '/');
+  if (!normalized.endsWith('.ts') && !normalized.endsWith('.js')) return false;
+  if (normalized.endsWith('.d.ts')) return false;
+  return normalized.includes('/tests/') || normalized.includes('/Test_Classes/');
+}
+
+function extractTestTitlesFromSource(fileContent) {
+  const titles = [];
+  const regex = /\btest(?:\.(?:only|skip|fixme|fail|slow))?\s*\(\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
+  let match;
+
+  while ((match = regex.exec(fileContent)) !== null) {
+    const title = (match[2] || '').trim();
+    if (!title || title.includes('${')) continue;
+    titles.push(title);
+  }
+
+  return titles;
+}
+
+function collectDiscoveredTests(projectRootPath) {
+  const discoveredRows = [];
+  const seen = new Set();
+  const targetDirs = [
+    path.join(projectRootPath, 'tests'),
+    path.join(projectRootPath, 'Test_Classes')
+  ];
+
+  for (const targetDir of targetDirs) {
+    walkFiles(targetDir, (filePath) => {
+      if (!isPotentialTestFile(filePath)) return;
+
+      const content = fs.readFileSync(filePath, 'utf8');
+      const titles = extractTestTitlesFromSource(content);
+      const normalizedFile = path.relative(projectRootPath, filePath).replace(/\\/g, '/');
+
+      for (const title of titles) {
+        const key = `${normalizedFile}::${title}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        discoveredRows.push({
+          file: normalizedFile,
+          suite: '',
+          testTitle: title,
+          project: '',
+          outcome: 'notRun',
+          status: 'notRun',
+          retry: 0,
+          durationSeconds: 0,
+          error: 'Not executed (run aborted before this test could start).'
+        });
+      }
+    });
+  }
+
+  return discoveredRows;
+}
+
+function mergeMissingDiscoveredTests(executedRows, discoveredRows, globalErrorMessage = '') {
+  const mergedRows = [...executedRows];
+  const existingKeys = new Set(
+    executedRows.map((row) => `${row.file || ''}::${row.testTitle || ''}`)
+  );
+
+  for (const discovered of discoveredRows) {
+    const key = `${discovered.file || ''}::${discovered.testTitle || ''}`;
+    if (existingKeys.has(key)) continue;
+
+    if (globalErrorMessage) {
+      discovered.error = globalErrorMessage;
+    }
+
+    mergedRows.push(discovered);
+  }
+
+  return mergedRows;
 }
 
 function buildFailureSummaryRows(testRows) {
@@ -121,7 +320,7 @@ function normalizeSummaryRow(row, sourceFile = 'current') {
   };
 }
 
-function buildFailureTrendRows(trendDir, currentSummary, maxRows = 30) {
+async function buildFailureTrendRows(trendDir, currentSummary, maxRows = 30) {
   const trendRows = [];
 
   if (fs.existsSync(trendDir)) {
@@ -131,11 +330,12 @@ function buildFailureTrendRows(trendDir, currentSummary, maxRows = 30) {
 
     for (const filePath of files) {
       try {
-        const workbook = XLSX.readFile(filePath);
-        const runSummarySheet = workbook.Sheets.RunSummary;
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(filePath);
+        const runSummarySheet = workbook.getWorksheet('RunSummary');
         if (!runSummarySheet) continue;
 
-        const rows = XLSX.utils.sheet_to_json(runSummarySheet, { defval: '' });
+        const rows = worksheetToJson(runSummarySheet);
         if (!rows.length) continue;
 
         trendRows.push(normalizeSummaryRow(rows[0], path.basename(filePath)));
@@ -170,18 +370,15 @@ function buildFailureTrendRows(trendDir, currentSummary, maxRows = 30) {
     .slice(0, maxRows);
 }
 
-function buildWorkbook(summaryRow, testRows) {
-  const workbook = XLSX.utils.book_new();
+async function buildWorkbook(summaryRow, testRows) {
+  const workbook = new ExcelJS.Workbook();
 
-  const summarySheet = XLSX.utils.json_to_sheet([summaryRow]);
-  const testsSheet = XLSX.utils.json_to_sheet(testRows);
   const failureRows = buildFailureSummaryRows(testRows);
   const failureSheetData = failureRows.length
     ? failureRows
     : [{ file: '', suite: '', failedTests: 0, uniqueFailingTests: 0, sampleError: 'No failed tests in this run.' }];
-  const failuresSheet = XLSX.utils.json_to_sheet(failureSheetData);
-  const trendRows = buildFailureTrendRows(path.resolve('excel-archive'), summaryRow);
-  const trendSheet = XLSX.utils.json_to_sheet(trendRows.length ? trendRows : [{
+  const trendRows = await buildFailureTrendRows(path.resolve('reports/result/excel-archive'), summaryRow);
+  const trendSheetData = trendRows.length ? trendRows : [{
     sourceFile: '',
     taskName: '',
     runStartTime: '',
@@ -196,21 +393,22 @@ function buildWorkbook(summaryRow, testRows) {
     failureRate: 0,
     flaky: 0,
     skipped: 0
-  }]);
+  }];
 
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'RunSummary');
-  XLSX.utils.book_append_sheet(workbook, testsSheet, 'TestDetails');
-  XLSX.utils.book_append_sheet(workbook, failuresSheet, 'FailureByModule');
-  XLSX.utils.book_append_sheet(workbook, trendSheet, 'FailureTrend');
+  addWorksheetFromJson(workbook, 'RunSummary', [summaryRow]);
+  addWorksheetFromJson(workbook, 'TestDetails', testRows);
+  addWorksheetFromJson(workbook, 'FailureByModule', failureSheetData);
+  addWorksheetFromJson(workbook, 'FailureTrend', trendSheetData);
 
   return workbook;
 }
 
-function main() {
+async function main() {
   const positionalArgs = args.filter((arg) => !arg.startsWith('--'));
 
-  const jsonPath = path.resolve(getArg('--jsonPath', positionalArgs[0] || 'reports/json-report/results.json'));
-  const outputPath = path.resolve(getArg('--outputPath', positionalArgs[1] || `reports/excel-report/playwright-result-${Date.now()}.xlsx`));
+  const jsonPath = path.resolve(getArg('--jsonPath', positionalArgs[0] || 'reports/result/json-report/results.json'));
+  const outputPath = path.resolve(getArg('--outputPath', positionalArgs[1] || `reports/report/playwright-result-${Date.now()}.xlsx`));
+  const latestOutputPath = path.resolve(getArg('--latestOutputPath', 'reports/result/last-run-results.xlsx'));
   const runStart = getArg('--runStart', positionalArgs[2] || '');
   const runEnd = getArg('--runEnd', positionalArgs[3] || '');
   const taskName = getArg('--taskName', positionalArgs[4] || 'Playwright_Daily_10PM');
@@ -219,9 +417,15 @@ function main() {
   const resultsJson = safeReadJson(jsonPath);
   const stats = (resultsJson && resultsJson.stats) ? resultsJson.stats : {};
   const suites = resultsJson && Array.isArray(resultsJson.suites) ? resultsJson.suites : [];
+  const runErrors = resultsJson && Array.isArray(resultsJson.errors) ? resultsJson.errors : [];
+  const firstRunError = runErrors.length && runErrors[0] && runErrors[0].message
+    ? runErrors[0].message
+    : '';
 
   const rows = [];
   collectTests(suites, rows);
+  const discoveredRows = collectDiscoveredTests(process.cwd());
+  const mergedRows = mergeMissingDiscoveredTests(rows, discoveredRows, firstRunError);
 
   const summary = {
     taskName,
@@ -241,10 +445,16 @@ function main() {
   };
 
   ensureDirectory(path.dirname(outputPath));
-  const workbook = buildWorkbook(summary, rows);
-  XLSX.writeFile(workbook, outputPath);
+  ensureDirectory(path.dirname(latestOutputPath));
+  const workbook = await buildWorkbook(summary, mergedRows);
+  await workbook.xlsx.writeFile(outputPath);
+  await workbook.xlsx.writeFile(latestOutputPath);
 
   console.log(`Excel report generated: ${outputPath}`);
+  console.log(`Latest Excel report updated: ${latestOutputPath}`);
 }
 
-main();
+main().catch((error) => {
+  console.error(`Excel report generation failed: ${error.message}`);
+  process.exit(1);
+});

@@ -1,12 +1,16 @@
 const path = require('path');
 const dotenv = require('dotenv');
+const { chromium } = require('@playwright/test');
 
 dotenv.config({
   path: path.resolve(__dirname, '..', '.env'),
   override: true,
 });
 
-const LOGIN_URL = 'https://appqa.birchstreet.co/j4/login.jsp';
+const DEFAULT_BASE_URL = 'https://appqa.birchstreet.co';
+const LOGIN_PATH = '/j4/login.jsp';
+const PAGE_TIMEOUT = 60_000;
+const LOGIN_SETTLE_MS = 800;
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -16,85 +20,67 @@ function requiredEnv(name) {
   return value.trim();
 }
 
-function parseCookieHeader(setCookieHeaders) {
-  return setCookieHeaders
-    .map((cookie) => cookie.split(';')[0])
-    .filter(Boolean)
-    .join('; ');
-}
-
-function isLoginPageHtml(html) {
-  const normalized = html.toLowerCase();
-  return (
-    normalized.includes('id="loginid"') ||
-    normalized.includes("id='loginid'") ||
-    normalized.includes('name="loginid"') ||
-    normalized.includes('name="password"')
-  );
-}
-
 async function run() {
   const username = requiredEnv('USERNAME');
   const password = requiredEnv('PASSWORD');
   const subscriberId = requiredEnv('SUBSCRIBER_ID');
-
-  const getRes = await fetch(LOGIN_URL, {
-    method: 'GET',
-    redirect: 'manual',
-  });
-  const loginHtml = await getRes.text();
-  const getCookies = parseCookieHeader(getRes.headers.getSetCookie?.() || []);
-
-  const formData = new URLSearchParams();
-  formData.set('loginID', username);
-  formData.set('password', password);
-  formData.set('subscriberID', subscriberId);
-
-  const postRes = await fetch(LOGIN_URL, {
-    method: 'POST',
-    redirect: 'manual',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Referer: LOGIN_URL,
-      ...(getCookies ? { Cookie: getCookies } : {}),
-    },
-    body: formData.toString(),
+  const baseUrl = String(process.env.BASE_URL || DEFAULT_BASE_URL).trim();
+  const loginUrl = new URL(LOGIN_PATH, baseUrl).toString();
+  const browser = await chromium.launch({
+    headless: false,
+    args: ['--start-maximized'],
   });
 
-  const location = postRes.headers.get('location') || '';
-  const postBody = await postRes.text();
-  const postLooksLikeLogin = isLoginPageHtml(postBody);
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    viewport: null,
+  });
+  const page = await context.newPage();
 
-  const lines = [
-    `GET ${LOGIN_URL} -> ${getRes.status}`,
-    `POST ${LOGIN_URL} -> ${postRes.status}`,
-    `POST location header: ${location || 'none'}`,
-    `POST body looks like login page: ${postLooksLikeLogin ? 'yes' : 'no'}`,
-  ];
-
-  if (location) {
-    const nextUrl = new URL(location, LOGIN_URL).toString();
-    const redirectedRes = await fetch(nextUrl, {
-      method: 'GET',
-      redirect: 'manual',
-      headers: getCookies ? { Cookie: getCookies } : undefined,
+  try {
+    await page.goto(loginUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: PAGE_TIMEOUT,
     });
-    const redirectedHtml = await redirectedRes.text();
-    lines.push(`Follow-up GET ${nextUrl} -> ${redirectedRes.status}`);
-    lines.push(`Follow-up page looks like login page: ${isLoginPageHtml(redirectedHtml) ? 'yes' : 'no'}`);
-  }
+    await page.locator('#loginID').fill(username);
+    await page.locator('#password').fill(password);
+    await page.locator('#subscriberID').fill(subscriberId);
+    await page.getByRole('button', { name: 'Login' }).click();
 
-  const authRejected =
-    postRes.status >= 400 ||
-    postLooksLikeLogin ||
-    (location && location.toLowerCase().includes('/j4/login.jsp')) ||
-    (!location && postRes.status === 200 && postLooksLikeLogin);
+    await page.waitForLoadState('networkidle', { timeout: PAGE_TIMEOUT }).catch(() => undefined);
+    await page.waitForTimeout(LOGIN_SETTLE_MS);
 
-  lines.push(`Auth verdict: ${authRejected ? 'REJECTED_OR_STAYED_ON_LOGIN' : 'LIKELY_ACCEPTED'}`);
-  console.log(lines.join('\n'));
+    const stillOnLogin = await page
+      .locator('#loginID')
+      .isVisible()
+      .catch(() => false);
+    const hasCompanyMenu = await page
+      .locator('#compDiv')
+      .isVisible()
+      .catch(() => false);
+    const currentUrl = page.url();
+    const likelyLoggedIn = !stillOnLogin && (hasCompanyMenu || currentUrl.includes('/j4/default.jsp') || currentUrl.includes('/j4/'));
 
-  if (authRejected) {
-    process.exitCode = 1;
+    console.log(`Login URL: ${loginUrl}`);
+    console.log(`Current URL after submit: ${currentUrl}`);
+    console.log(`Login field visible after submit: ${stillOnLogin ? 'yes' : 'no'}`);
+    console.log(`Company menu visible: ${hasCompanyMenu ? 'yes' : 'no'}`);
+    console.log(`Auth verdict: ${likelyLoggedIn ? 'LIKELY_ACCEPTED' : 'REJECTED_OR_STAYED_ON_LOGIN'}`);
+
+    if (!likelyLoggedIn) {
+      const errorText = await page
+        .locator('.error, .alert, .login-error, #error, .message')
+        .first()
+        .innerText()
+        .catch(() => '');
+      if (errorText) {
+        console.log(`Visible error: ${errorText}`);
+      }
+      process.exitCode = 1;
+    }
+  } finally {
+    await context.close();
+    await browser.close();
   }
 }
 

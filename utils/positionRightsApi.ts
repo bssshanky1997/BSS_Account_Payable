@@ -1,5 +1,4 @@
 import { request, type APIRequestContext } from '@playwright/test';
-import { getEnvConfig } from '../config/qa.env';
 
 type RightRow = string[];
 
@@ -25,14 +24,15 @@ type PositionDocData = {
 
 const FK_LOAD_XML =
   '<FOREIGN_KEY_DESC><ROW><CHILD_TABLE>SMPOSITION_RIGHT_DETAIL</CHILD_TABLE><CHILD_COLUMN>RIGHT_ID</CHILD_COLUMN><PARENT_TABLE>SMPOSITION_RIGHT_MASTER</PARENT_TABLE><PARENT_KEY_COLUMN>RIGHT_ID</PARENT_KEY_COLUMN><PARENT_DESC_COLUMN>RIGHT_DESC</PARENT_DESC_COLUMN></ROW></FOREIGN_KEY_DESC>';
+const DEFAULT_BASE_URL = 'https://appqa.birchstreet.co';
 
 export class PositionRightsApi {
   private apiContext?: APIRequestContext;
 
   async init(): Promise<void> {
-    const envConfig = getEnvConfig();
+    const baseUrl = String(process.env.BASE_URL || DEFAULT_BASE_URL).trim();
     this.apiContext = await request.newContext({
-      baseURL: new URL('/j4/', envConfig.baseURL).toString(),
+      baseURL: new URL('/j4/', baseUrl).toString(),
       storageState: 'playwright/.auth/user.json',
       ignoreHTTPSErrors: true,
       extraHTTPHeaders: {

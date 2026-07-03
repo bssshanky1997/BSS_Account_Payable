@@ -1,10 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { chromium, type Page } from '@playwright/test';
-import { getEnvConfig } from '../config/qa.env';
 
 const LOGIN_PATH = '/j4/login.jsp';
 const DEFAULT_PATH = '/j4/default.jsp';
+const DEFAULT_BASE_URL = 'https://appqa.birchstreet.co';
 const PLACEHOLDER_AUTH_VALUES = new Set([
   'your_username',
   'your_password',
@@ -14,6 +14,11 @@ const PLACEHOLDER_AUTH_VALUES = new Set([
 
 const hasPlaceholderCredential = (value: string): boolean =>
   PLACEHOLDER_AUTH_VALUES.has(value.trim().toLowerCase());
+
+const getBaseUrl = (): string => String(process.env.BASE_URL || DEFAULT_BASE_URL).trim();
+const getUsername = (): string => String(process.env.USERNAME || '').trim();
+const getPassword = (): string => String(process.env.PASSWORD || '').trim();
+const getSubscriberId = (): string => String(process.env.SUBSCRIBER_ID || '').trim();
 
 export const AUTH_STATE_PATH = '.auth/user.json';
 export const AUTH_STATE_ABS_PATH = path.resolve(process.cwd(), AUTH_STATE_PATH);
@@ -26,13 +31,15 @@ const waitForPostLogin = async (page: Page): Promise<void> => {
 };
 
 export const hasAuthCredentials = (): boolean => {
-  const envConfig = getEnvConfig();
-  if (!envConfig.username || !envConfig.password || !envConfig.subscriberId) return false;
+  const username = getUsername();
+  const password = getPassword();
+  const subscriberId = getSubscriberId();
+  if (!username || !password || !subscriberId) return false;
 
   return !(
-    hasPlaceholderCredential(envConfig.username) ||
-    hasPlaceholderCredential(envConfig.password) ||
-    hasPlaceholderCredential(envConfig.subscriberId)
+    hasPlaceholderCredential(username) ||
+    hasPlaceholderCredential(password) ||
+    hasPlaceholderCredential(subscriberId)
   );
 };
 
@@ -51,21 +58,20 @@ export const isLoginScreenVisible = async (page: Page, timeoutMs = 2500): Promis
 };
 
 export const loginWithCredentials = async (page: Page, baseURL?: string): Promise<void> => {
-  const envConfig = getEnvConfig();
   if (!hasAuthCredentials()) {
     throw new Error(
       'Missing valid USERNAME, PASSWORD, or SUBSCRIBER_ID for authentication. Ensure .env contains real credentials and not placeholder values.'
     );
   }
 
-  const resolvedBaseUrl = baseURL ?? envConfig.baseURL;
+  const resolvedBaseUrl = baseURL ?? getBaseUrl();
   await page.goto(resolveUrl(LOGIN_PATH, resolvedBaseUrl), {
     waitUntil: 'domcontentloaded',
     timeout: 60_000,
   });
-  await page.locator('#loginID').fill(envConfig.username);
-  await page.locator('#password').fill(envConfig.password);
-  await page.locator('#subscriberID').fill(envConfig.subscriberId);
+  await page.locator('#loginID').fill(getUsername());
+  await page.locator('#password').fill(getPassword());
+  await page.locator('#subscriberID').fill(getSubscriberId());
   await page.getByRole('button', { name: 'Login' }).click();
   await waitForPostLogin(page);
 
@@ -75,13 +81,12 @@ export const loginWithCredentials = async (page: Page, baseURL?: string): Promis
 };
 
 export const ensureAuthenticatedPage = async (page: Page, targetRouteOrUrl = DEFAULT_PATH): Promise<boolean> => {
-  const envConfig = getEnvConfig();
-  const targetUrl = resolveUrl(targetRouteOrUrl, envConfig.baseURL);
+  const targetUrl = resolveUrl(targetRouteOrUrl, getBaseUrl());
 
   await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   if (!(await isLoginScreenVisible(page))) return false;
 
-  await loginWithCredentials(page, envConfig.baseURL);
+  await loginWithCredentials(page, getBaseUrl());
   await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   return true;
 };
@@ -89,15 +94,18 @@ export const ensureAuthenticatedPage = async (page: Page, targetRouteOrUrl = DEF
 export const ensureAuthStorageState = async (baseURL?: string): Promise<'created' | 'skipped'> => {
   if (!hasAuthCredentials()) return 'skipped';
 
-  const envConfig = getEnvConfig();
-  const resolvedBaseUrl = baseURL ?? envConfig.baseURL;
+  const resolvedBaseUrl = baseURL ?? getBaseUrl();
   await fs.promises.mkdir(path.dirname(AUTH_STATE_ABS_PATH), { recursive: true });
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: false,
+    args: ['--start-maximized'],
+  });
   try {
     const context = await browser.newContext({
       baseURL: resolvedBaseUrl,
       ignoreHTTPSErrors: true,
+      viewport: null,
     });
     try {
       const page = await context.newPage();

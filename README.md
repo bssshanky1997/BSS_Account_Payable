@@ -6,19 +6,21 @@ End-to-end test automation for the BirchStreet Account Payable module using Play
 
 ```text
 Bss_AccountPayable/
-├── tests/Regression_Suite/            # Playwright TypeScript specs
-├── tests/Fuctional_Suite/             # Functional suite TypeScript specs
-├── pages/                             # TypeScript page objects
+├── tests/Fuctional_Suite/             # Functional suite specs
+├── POM-Classes/Fuctional_Suite/       # Page Object Model classes
 ├── fixtures/                          # Custom Playwright fixtures
-├── utils/                             # Shared TypeScript utilities
+├── hooks/                             # Global setup and lifecycle hooks
+├── scripts/                           # Report and utility scripts
 ├── config/                            # Environment configuration
+├── utils/                             # Shared TypeScript utilities
 ├── playwright.config.ts               # Playwright runtime configuration
 ├── tsconfig.json                      # TypeScript compiler configuration
 ├── package.json                       # Node dependencies and scripts
-├── screenshots/                       # Screenshot artifacts by test file
-├── reports/                           # HTML + Allure report artifacts
-├── test-results/                      # Runtime test output and last-run summary
-└── reports/excel-results/             # Exported Excel summary files
+├── reports/                           # Generated reports and runtime artifacts
+├── Reports/                           # Timestamped nightly run bundles
+├── logs/                              # Scheduler run logs
+├── run-playwright-daily.ps1           # Nightly execution runner
+└── setup-playwright-task.ps1          # Windows Task Scheduler registration
 ```
 
 ## Getting Started
@@ -70,6 +72,18 @@ Run headed:
 npm run test:headed
 ```
 
+Run debug mode:
+
+```bash
+npm run test:debug
+```
+
+Open Playwright UI mode:
+
+```bash
+npm run test:ui
+```
+
 ## Reports
 
 Show HTML report:
@@ -86,8 +100,39 @@ npm run allure:generate
 npm run allure:open
 ```
 
+Generate Excel summary from JSON report:
+
+```bash
+npm run report:excel
+```
+
+Generate scheduler-style summary artifacts (HTML/JSON/email):
+
+```bash
+npm run report:scheduled
+```
+
+## Nightly Scheduler
+
+- Setup 10 PM scheduled execution on Windows:
+
+```bash
+npm run setup:scheduler
+```
+
+- Runner script: `run-playwright-daily.ps1`
+- Scheduler guide: `README-scheduler.md`
+
 ## Notes
 
-- Screenshots are automatically captured for non-skipped tests into `screenshots/<test_file>/`.
-- Authentication state for long-running suites is cached under `test-results/.auth/`.
+- Failure diagnostics are enabled by default:
+  - screenshot on failure
+  - trace on failure
+  - video on failure
+- Authentication state is reused from `playwright/.auth/user.json`.
+- Main report outputs:
+  - `reports/report/html-report`
+  - `reports/result/json-report/results.json`
+  - `reports/result/allure-results`
+  - `Reports/<timestamp>/` (nightly bundle with execution summary + email summary + failed-tests list)
 - Legacy Python and Java assets may still exist in the repository for reference.

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const baseScreenshotDir = path.resolve(__dirname, '..', 'screenshots');
+const baseScreenshotDir = path.resolve(__dirname, '..', 'reports', 'screenshot');
 
 export function sanitizeForPath(value: string): string {
   return value

@@ -4,23 +4,25 @@
   "description": "BirchStreet Account Payable Automation Framework using Playwright",
   "scripts": {
     "test": "npx playwright test",
+    "playwright-test-healer.agent": "npx playwright test \"Test_Classes/PO_Creation_Test.spec.ts\"",
     "test:headed": "npx playwright test --headed",
     "test:debug": "npx playwright test --debug",
     "test:ui": "npx playwright test --ui",
     "debug:login": "node scripts/validate-login.js",
-    "report": "npx playwright show-report reports/html-report",
+    "report": "npx playwright show-report reports/report/html-report",
     "report:excel": "node scripts/generate-excel-report.js",
+    "report:scheduled": "node scripts/generate-scheduled-summary.js",
     "setup:scheduler": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup-playwright-task.ps1",
-    "allure:generate": "npx allure generate reports/allure-results --clean -o reports/allure-report",
-    "allure:open": "npx allure open reports/allure-report"
+    "allure:generate": "npx allure generate reports/result/allure-results --clean -o reports/report/allure-report",
+    "allure:open": "npx allure open reports/report/allure-report"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
     "@types/node": "^25.9.1",
     "allure-playwright": "^3.0.0",
     "dotenv": "^16.4.0",
-    "typescript": "^5.4.0",
-    "xlsx": "^0.18.5"
+    "exceljs": "^4.4.0",
+    "typescript": "^5.4.0"
   },
   "keywords": [
     "playwright",

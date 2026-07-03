@@ -1,5 +1,4 @@
 import { APIRequestContext, request } from '@playwright/test';
-import { getEnvConfig } from '../config/qa.env';
 
 /**
  * API Helper for BSS Account Payable
@@ -11,8 +10,7 @@ export class ApiHelper {
   private authToken: string = '';
 
   constructor() {
-    const config = getEnvConfig();
-    this.baseURL = config.apiBaseURL;
+    this.baseURL = String(process.env.API_BASE_URL || 'https://qa-api.birchstreet.net').trim();
   }
 
   /**

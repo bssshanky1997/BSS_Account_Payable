@@ -1,28 +1,24 @@
 import path from 'path';
 import dotenv from 'dotenv';
 import { defineConfig } from '@playwright/test';
-import { getEnvConfig } from './config/qa.env';
-
-const requestedEnv = (process.env.TEST_ENV || 'qa').trim().toLowerCase();
-const envFileByName: Record<string, string> = {
-  qa: '.env',
-  uat: '.env.uat',
-};
-const resolvedEnvFile = envFileByName[requestedEnv] || '.env';
 
 dotenv.config({
-  path: path.resolve(__dirname, resolvedEnvFile),
+  path: path.resolve(__dirname, '.env'),
   override: true
 });
 
-const envConfig = getEnvConfig();
+const baseURL = String(process.env.BASE_URL || 'https://appqa.birchstreet.co').trim();
 const isScheduledRun = process.env.SCHEDULED_RUN === 'true';
-const isHeadlessRequested = process.env.PW_HEADLESS === 'true';
+const requestedSlowMo = Number(process.env.PW_SLOWMO || 0);
+const slowMoMs = Number.isFinite(requestedSlowMo) && requestedSlowMo > 0 ? requestedSlowMo : 0;
 
 export default defineConfig({
 
-  /* Test folder */
-  testDir: './tests',
+  /* Test folders */
+  testMatch: [
+    'tests/**/*.spec.ts',
+    'Test_Classes/**/*.spec.ts'
+  ],
 
   /* Sequential execution for Jenkins stability */
   fullyParallel: false,
@@ -30,8 +26,11 @@ export default defineConfig({
   /* Prevent accidental test.only in CI */
   forbidOnly: !!process.env.CI,
 
-  /* Retry failed tests */
-  retries: process.env.CI ? 2 : 1,
+  /* Continue full execution even after failures */
+  maxFailures: 0,
+
+  /* Keep scheduler output as one final result per test */
+  retries: isScheduledRun ? 0 : (process.env.CI ? 2 : 1),
 
   /* Single worker for AP workflows */
   workers: 1,
@@ -47,29 +46,29 @@ export default defineConfig({
   /* Reports */
   reporter: [
     ['html', {
-      outputFolder: 'reports/html-report',
+      outputFolder: 'reports/report/html-report',
       open: isScheduledRun ? 'never' : 'always'
     }],
     ['json', {
-      outputFile: 'reports/json-report/results.json'
+      outputFile: 'reports/result/json-report/results.json'
     }],
     ['list'],
     ['allure-playwright', {
-      resultsDir: 'reports/allure-results'
+      resultsDir: 'reports/result/allure-results'
     }],
   ],
 
   /* Global setup */
-  globalSetup: './hooks/globalSetup.ts',
+  globalSetup: './Base_Class/globalSetup.ts',
 
   /* Shared settings */
   use: {
 
-    /* Keep local behavior, allow scheduler/Jenkins override via env variables */
-    headless: isHeadlessRequested,
+    /* Always run in headed mode */
+    headless: false,
 
     /* Application URL */
-    baseURL: envConfig.baseURL,
+    baseURL,
 
     /* Reuse login session */
     storageState: 'playwright/.auth/user.json',
@@ -96,7 +95,7 @@ export default defineConfig({
     /* Slow execution slightly for Jenkins */
     launchOptions: {
 
-      slowMo: 500,
+      slowMo: slowMoMs,
 
       args: [
         '--start-maximized',
@@ -109,7 +108,7 @@ export default defineConfig({
   },
 
   /* Test artifacts */
-  outputDir: './test-results',
+  outputDir: './reports/failed-screenshot',
 
   /* Browser projects */
   projects: [

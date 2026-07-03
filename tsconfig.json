@@ -17,19 +17,22 @@
     "baseUrl": ".",
     "paths": {
       "@pages/*": ["pages/*"],
+      "@poms/*": ["Page_Object_Model_Classes/*"],
       "@utils/*": ["utils/*"],
       "@fixtures/*": ["fixtures/*"],
       "@config/*": ["config/*"],
-      "@hooks/*": ["hooks/*"]
+      "@hooks/*": ["Base_Class/*"]
     }
   },
   "include": [
-    "tests/**/*.ts",
+    "Test_Classes/**/*.ts",
     "pages/**/*.ts",
+    "Page_Object_Model_Classes/**/*.ts",
+    "API_Helper/**/*.ts",
     "fixtures/**/*.ts",
     "utils/**/*.ts",
     "config/**/*.ts",
-    "hooks/**/*.ts",
+    "Base_Class/**/*.ts",
     "playwright.config.ts"
   ],
   "exclude": ["node_modules", "dist", "test-results", "reports"]
