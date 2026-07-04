@@ -4,36 +4,21 @@ export class SmartAPListPage {
   constructor(private readonly page: Page) {}
 
   async openApInvoiceFromQuickLinks(): Promise<void> {
-    await this.page.waitForLoadState('domcontentloaded').catch(() => {});
-    await this.page.waitForLoadState('networkidle').catch(() => {});
-
+    // Step 1: Open Accounts Payable Quick Links.
     const apQuickLinks = this.page
       .locator('div.card-body:has(h5:has-text("Accounts Payable")) button#quickLinks2')
       .first();
-    await apQuickLinks.waitFor({ state: 'visible', timeout: 30_000 });
+    await apQuickLinks.waitFor({ state: 'visible', timeout: 10_000 });
     await apQuickLinks.click();
 
-    const apInvoiceCandidates = [
-      this.page.locator('a:has-text("AP Invoice"):visible').first(),
-      this.page.locator('button:has-text("AP Invoice"):visible').first(),
-      this.page.locator('[title*="AP Invoice" i]:visible').first(),
-      this.page.locator('a:has-text("AP Invoice"), button:has-text("AP Invoice"), [title*="AP Invoice" i]').first(),
-    ];
+    // Step 2: Select visible AP Invoice option from Quick Links.
+    const apInvoice = this.page
+      .locator('a:has-text("AP Invoice"):visible, button:has-text("AP Invoice"):visible, [title*="AP Invoice" i]:visible')
+      .first();
+    await apInvoice.waitFor({ state: 'visible', timeout: 10_000 });
+    await apInvoice.click();
 
-    for (const candidate of apInvoiceCandidates) {
-      if (await candidate.isVisible().catch(() => false)) {
-        await candidate.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
-        await candidate.click().catch(async () => {
-          await candidate.click({ force: true });
-        });
-        await this.page.waitForLoadState('domcontentloaded').catch(() => {});
-        await this.page.waitForLoadState('networkidle').catch(() => {});
-        return;
-      }
-    }
-
-    await apInvoiceCandidates[apInvoiceCandidates.length - 1].click({ force: true });
-    await this.page.waitForLoadState('domcontentloaded').catch(() => {});
-    await this.page.waitForLoadState('networkidle').catch(() => {});
+    // Step 3: Wait until AP Invoice page finishes loading.
+    await this.page.waitForLoadState('networkidle');
   }
 }
