@@ -62,7 +62,17 @@ async function performLogin(
   await page.locator('#loginID').fill(credentials.username);
   await page.locator('#password').fill(credentials.password);
   await page.locator('#subscriberID').fill(credentials.subscriberId);
-  await page.getByRole('button', { name: 'Login' }).click();
+
+  const loginButton = page.locator('#submitLogin').first();
+  if (await loginButton.isVisible().catch(() => false)) {
+    await loginButton.click({ noWaitAfter: true }).catch(async () => {
+      await loginButton.click({ force: true, noWaitAfter: true });
+    });
+  } else {
+    await page.getByRole('button', { name: 'Login' }).click({ noWaitAfter: true }).catch(async () => {
+      await page.getByRole('button', { name: 'Login' }).click({ force: true, noWaitAfter: true });
+    });
+  }
 
   const loginDeadline = Date.now() + PAGE_TIMEOUT;
   while (Date.now() < loginDeadline) {

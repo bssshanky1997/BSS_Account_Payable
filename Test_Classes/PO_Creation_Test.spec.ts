@@ -1,12 +1,14 @@
 import { test, expect } from '../fixtures/testFixture';
 import { APHomePage } from '@poms/AP_Home_Page';
 import { POCreationPage } from '@poms/PO_Creation_Page';
+import { SmartApDetailPage } from '@poms/SmartAp_Detail_Page';
 
 test.describe('PO Creation', () => {
   test.describe.configure({ retries: 0 });
 
   test('Skeleton smoke test', async ({ page }) => {
     const apHomePage = new APHomePage(page);
+    const smartApDetailPage = new SmartApDetailPage(page);
     const poCreationPage = new POCreationPage(page);
     const companyId = '931';
     let categoryAttemptDone = false;
@@ -15,7 +17,7 @@ test.describe('PO Creation', () => {
     };
 
     await test.step('Step 1: Open application home page and change company to 931', async () => {
-      await apHomePage.openHomePage();
+      await smartApDetailPage.openHomePage();
       await apHomePage.changeCompanyId(companyId);
     });
 
