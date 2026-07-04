@@ -1,83 +1,61 @@
-import { expect, type Page } from '@playwright/test';
-
-type CreateInvoiceData = {
-  invoiceNumber: string;
-  invoiceDate: string;
-  supplierName: string;
-  supplierSku: string;
-  itemDescription: string;
-  departmentName: string;
-  glAccount: string;
-  quantity: string;
-  unitPrice: string;
-  uomCode: string;
-  taxCode: string;
-  subTotal: string;
-  taxAmount: string;
-};
+import { type FrameLocator, type Locator, type Page } from '@playwright/test';
 
 export class APHomePage {
   constructor(private readonly page: Page) {}
 
-  async openHomePage(): Promise<void> {
-    await this.page.goto('/');
-    await this.page.waitForLoadState('domcontentloaded');
+  async changeCompanyId(companyId: string): Promise<void> {
+    const companyIcon = this.page.locator('#compDiv').getByRole('img');
+    await this.clickWithFallback(companyIcon);
+
+    const companyDialog = await this.getCompanyDialogFrame();
+
+    const radioById = companyDialog.locator('#radio2');
+    if (await radioById.isVisible().catch(() => false)) {
+      await radioById.check().catch(async () => this.clickWithFallback(radioById));
+    }
+
+    const inputValue = companyDialog.locator('#InputValue');
+    await this.clickWithFallback(inputValue);
+    await inputValue.fill(companyId, { timeout: 3_000 });
+    await inputValue.press('Enter', { timeout: 3_000 }).catch(() => {});
+    await inputValue.press('Tab', { timeout: 3_000 }).catch(() => {});
+
+    await this.clickFirstVisible([
+      companyDialog.getByRole('button', { name: /^ok$/i }).first(),
+      companyDialog.locator('#OK, #ok, input[value="OK"], button:has-text("OK")').first(),
+      this.page.getByRole('button', { name: /^ok$/i }).first(),
+      this.page.locator('#OK, #ok, input[value="OK"], button:has-text("OK")').first(),
+    ]);
+
   }
 
-  async changeCompanyId(companyId: string): Promise<void> {
-    const company = this.page.locator('#COMPANY_ID, input[name*="company" i]').first();
-    if (await company.isVisible().catch(() => false)) {
-      await company.fill(companyId).catch(() => {});
-      await company.press('Enter').catch(() => {});
+  private async getCompanyDialogFrame(): Promise<FrameLocator> {
+    const iframeCandidates = [
+      this.page.locator('iframe[name="_dlgOpenerIframe1"]').first(),
+      this.page.locator('iframe[name^="_dlgOpenerIframe"]').first(),
+      this.page.locator('iframe[id^="_dlgOpenerIframe"]').first(),
+    ];
+
+    for (const iframe of iframeCandidates) {
+      if (await iframe.isVisible().catch(() => false)) {
+        return iframe.contentFrame();
+      }
+    }
+
+    return this.page.locator('iframe[name="_dlgOpenerIframe1"]').first().contentFrame();
+  }
+
+  private async clickFirstVisible(candidates: Locator[]): Promise<void> {
+    for (const candidate of candidates) {
+      if (!(await candidate.isVisible().catch(() => false))) continue;
+      await this.clickWithFallback(candidate);
+      return;
     }
   }
 
-  async openApInvoicePage(): Promise<void> {
-    const apInvoice = this.page.locator('a:has-text("AP Invoice"), [title="AP Invoice"]').first();
-    await apInvoice.waitFor({ state: 'visible', timeout: 30_000 });
-    await apInvoice.click();
-  }
-
-  async verifyBulkSubmitVisible(): Promise<void> {
-    await expect(this.page.getByRole('button', { name: /bulk\s*submit|batch\s*submit/i }).first()).toBeVisible();
-  }
-
-  async openCreateFromScratchForm(): Promise<void> {
-    const createFromScratch = this.page.getByText(/create\s*from\s*scratch/i).first();
-    await createFromScratch.waitFor({ state: 'visible', timeout: 30_000 });
-    await createFromScratch.click();
-  }
-
-  async createInvoiceFromScratch(data: CreateInvoiceData): Promise<void> {
-    await this.tryFill('input[name*="invoice" i]', data.invoiceNumber);
-    await this.tryFill('input[name*="date" i]', data.invoiceDate);
-    await this.tryFill('input[name*="supplier" i]', data.supplierName);
-  }
-
-  async saveInvoiceDismissDialog(): Promise<void> {
-    await this.page.getByRole('button', { name: /^save$/i }).first().click().catch(() => {});
-  }
-
-  async openInvoiceDetailUrl(url: string): Promise<void> {
-    await this.page.goto(url);
-  }
-
-  async enterSubtotalAndValidateTaxAndTotal(subtotal: number): Promise<void> {
-    await this.tryFill('input[name*="subtotal" i], #subTotal', String(subtotal));
-  }
-
-  async selectTaxAuthoritiesAndValidateAmounts(_subtotal: number, _taxAuthorities: string[]): Promise<void> {
-    await this.page.waitForTimeout(200);
-  }
-
-  async populateInvoiceHeaderAndSelectPoReference(invoiceNumber: string): Promise<void> {
-    await this.tryFill('input[name*="invoice" i]', invoiceNumber);
-  }
-
-  private async tryFill(selector: string, value: string): Promise<void> {
-    const field = this.page.locator(selector).first();
-    if (!(await field.isVisible().catch(() => false))) return;
-    await field.fill(value).catch(() => {});
-    await field.press('Tab').catch(() => {});
+  private async clickWithFallback(locator: Locator): Promise<void> {
+    await locator.click({ timeout: 3_000 }).catch(async () => {
+      await locator.click({ force: true, timeout: 3_000 });
+    });
   }
 }
