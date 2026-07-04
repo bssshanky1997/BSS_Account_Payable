@@ -1,53 +1,33 @@
-import { type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 export class APHomePage {
   constructor(private readonly page: Page) {}
 
   async changeCompanyId(companyId: string): Promise<void> {
-    // Step 1: Open company switcher icon.
-    const companyIcon = this.page.locator('#compDiv').getByRole('img').first();
-    await companyIcon.waitFor({ state: 'visible', timeout: 10_000 });
-    await companyIcon.click({ timeout: 10_000 }).catch(async () => {
-      await companyIcon.click({ force: true, timeout: 10_000 });
-    });
+    // Step 1: Open company search dialog from AP home header.
+    const companyPickerIcon = this.page.locator('#compDiv').getByRole('img');
+    await companyPickerIcon.waitFor({ state: 'visible', timeout: 15_000 });
+    await companyPickerIcon.click();
 
-    // Step 2: Wait for company dialog iframe and attach frame.
-    const dialogIframe = this.page
-      .locator('iframe[name="_dlgOpenerIframe1"], iframe[name^="_dlgOpenerIframe"], iframe[id^="_dlgOpenerIframe"]')
-      .first();
-    await dialogIframe.waitFor({ state: 'visible', timeout: 10_000 });
-    const dialogFrame = dialogIframe.contentFrame();
+    // Step 2: Search by company ID and confirm selection.
+    const dialogIframe = this.page.locator('iframe[name="_dlgOpenerIframe1"]');
+    await dialogIframe.waitFor({ state: 'visible', timeout: 15_000 });
+    const dialogFrame = this.page.frameLocator('iframe[name="_dlgOpenerIframe1"]');
+    const companyIdRadio = dialogFrame.locator('#radio2');
+    await companyIdRadio.waitFor({ state: 'visible', timeout: 15_000 });
+    await companyIdRadio.check();
 
-    // Step 3: Select company-id radio mode when present.
-    const radioById = dialogFrame.locator('#radio2').first();
-    if (await radioById.isVisible().catch(() => false)) {
-      await radioById.check().catch(async () => {
-        await radioById.click({ force: true, timeout: 10_000 });
-      });
-    }
+    const inputValue = dialogFrame.locator('#InputValue');
+    await inputValue.waitFor({ state: 'visible', timeout: 15_000 });
+    await inputValue.click();
+    await inputValue.press('Control+A');
+    await inputValue.press('Delete');
+    await inputValue.type(companyId);
+    await inputValue.press('Tab');
 
-    // Step 4: Enter target company id and trigger field validation.
-    const inputValue = dialogFrame.locator('#InputValue').first();
-    await inputValue.waitFor({ state: 'visible', timeout: 10_000 });
-    await inputValue.click({ timeout: 10_000 }).catch(async () => {
-      await inputValue.click({ force: true, timeout: 10_000 });
-    });
-    await inputValue.fill(companyId);
-    await inputValue.press('Enter').catch(() => {});
-    await inputValue.press('Tab').catch(() => {});
-
-    // Step 5: Submit with OK button; fallback to force click and Enter.
-    await dialogFrame.getByRole('button', { name: /^ok$/i }).first().click({ timeout: 4_000 }).catch(async () => {
-      await dialogFrame
-        .locator('#OK, #ok, input[value="OK"], button:has-text("OK")')
-        .first()
-        .click({ force: true, timeout: 4_000 })
-        .catch(async () => {
-          await inputValue.press('Enter').catch(() => {});
-        });
-    });
-
-    // Step 6: Wait for dialog to close.
-    await dialogIframe.waitFor({ state: 'hidden', timeout: 4_000 }).catch(() => {});
+    const okButton = dialogFrame.getByRole('button', { name: 'OK' });
+    await okButton.waitFor({ state: 'visible', timeout: 15_000 });
+    await expect(okButton).toBeEnabled({ timeout: 10_000 });
+    await okButton.click();
   }
 }
