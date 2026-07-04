@@ -13,9 +13,34 @@ export class POCreationPage {
     await locator.click().catch(() => locator.click({ force: true }));
   }
 
+  private async clearBlockingUiArtifacts(): Promise<void> {
+    await waitForLoaderToDisappear(this.page);
+    await this.page.keyboard.press('Escape').catch(() => {});
+    await this.overlay.waitFor({ state: 'hidden', timeout: 2_000 }).catch(() => {});
+  }
+
+  private async activateGridCellForEdit(cell: Locator): Promise<void> {
+    await this.ensureVisible(cell, 20_000);
+    await cell.scrollIntoViewIfNeeded().catch(() => {});
+    await this.clearBlockingUiArtifacts();
+
+    try {
+      await cell.dblclick({ timeout: 7_000 });
+      return;
+    } catch {
+      await this.clearBlockingUiArtifacts();
+      await cell.click({ force: true });
+      await this.page.waitForTimeout(100);
+      await cell.click({ force: true });
+    }
+  }
+
   async firstVisible(candidates: Locator[], timeoutMs = 20_000): Promise<Locator> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
+      if (this.page.isClosed()) {
+        throw new Error('Page closed while waiting for a visible element.');
+      }
       for (const c of candidates) {
         const n = await c.count().catch(() => 0);
         for (let i = 0; i < n; i += 1) {
@@ -28,31 +53,107 @@ export class POCreationPage {
     throw new Error('Could not find a visible element for the requested action.');
   }
 
+  private async findVisibleDialogIframe(timeoutMs = 30_000): Promise<Locator | null> {
+    const deadline = Date.now() + timeoutMs;
+    const iframeCandidates = this.page.locator(
+      'iframe[name*="_dlgOpenerIframe"], iframe[id*="_dlgOpenerIframe"], iframe[name*="dlgOpener"], iframe[id*="dlgOpener"]'
+    );
+
+    while (Date.now() < deadline) {
+      if (this.page.isClosed()) return null;
+      const count = await iframeCandidates.count().catch(() => 0);
+      for (let i = 0; i < count; i += 1) {
+        const frame = iframeCandidates.nth(i);
+        if (await frame.isVisible().catch(() => false)) return frame;
+      }
+      await this.page.waitForTimeout(200).catch(() => {});
+    }
+    return null;
+  }
+
   async scrollGridToRight(): Promise<void> {
-    await this.page.locator('.ag-body-horizontal-scroll-viewport, .ag-center-cols-viewport').first().evaluate((el) => {
+    const gridViewport = this.page.locator('.ag-body-horizontal-scroll-viewport, .ag-center-cols-viewport').first();
+    await this.ensureVisible(gridViewport, 20_000);
+    await gridViewport.evaluate((el) => {
       (el as HTMLElement).scrollLeft = (el as HTMLElement).scrollWidth;
     });
   }
 
   async getGridCell(columnNameRegex: RegExp, fallbackCellIndex: number): Promise<Locator> {
     const row = this.page.locator('.ag-center-cols-container .ag-row').first();
+    await this.ensureVisible(row, 20_000);
     const header = this.page.getByRole('columnheader', { name: columnNameRegex }).first();
-    const ariaIndex = await header.getAttribute('aria-colindex').catch(() => null);
+    const headerVisible = await header.isVisible().catch(() => false);
+    const ariaIndex = headerVisible ? await header.getAttribute('aria-colindex').catch(() => null) : null;
     if (ariaIndex) return row.locator(`[role="gridcell"][aria-colindex="${ariaIndex}"]`).first();
     return row.getByRole('gridcell').nth(fallbackCellIndex);
   }
 
   async editGridCellAndTab(columnNameRegex: RegExp, fallbackCellIndex: number, value: string): Promise<void> {
     const cell = await this.getGridCell(columnNameRegex, fallbackCellIndex);
-    await cell.dblclick();
-    await this.page.keyboard.press('Control+A');
-    await this.page.keyboard.type(value);
+    await this.activateGridCellForEdit(cell);
+
+    const activeEditor = this.page
+      .locator('.ag-cell-inline-editing input, .ag-cell-inline-editing textarea, .ag-cell-inline-editing [contenteditable="true"]')
+      .first();
+    if (await activeEditor.isVisible().catch(() => false)) {
+      await activeEditor.click().catch(() => activeEditor.click({ force: true }));
+    }
+
+    await this.page.keyboard.press('Control+A').catch(() => {});
+    await this.page.keyboard.type(value, { delay: 20 });
     await this.page.keyboard.press('Tab');
   }
 
+  async editGridCellDirectAndTab(columnNameRegex: RegExp, fallbackCellIndex: number, value: string): Promise<void> {
+    const cell = await this.getGridCell(columnNameRegex, fallbackCellIndex);
+    const normalizedExpected = value.trim().toLowerCase();
+    const readCellText = async (): Promise<string> => {
+      const txt = (await cell.innerText().catch(() => '')) || '';
+      return txt.replace(/\s+/g, ' ').trim().toLowerCase();
+    };
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      await this.ensureVisible(cell, 20_000);
+      await cell.scrollIntoViewIfNeeded().catch(() => {});
+      await this.clearBlockingUiArtifacts();
+      await cell.click({ force: true });
+      await this.page.keyboard.press('Control+A').catch(() => {});
+      await this.page.keyboard.type(value, { delay: 20 });
+      await this.page.keyboard.press('Tab');
+      await this.page.waitForTimeout(200);
+
+      const committedText = await readCellText();
+      if (committedText.includes(normalizedExpected)) return;
+    }
+
+    throw new Error(`Failed to commit "${value}" in direct grid edit.`);
+  }
+
+  async blockUomSearchGlassIfVisible(): Promise<void> {
+    const uomLookupDialog = this.page.locator(
+      '.ui-dialog:has-text("UOM"), .ui-dialog:has-text("Unit"), [role="dialog"]:has-text("UOM"), [role="dialog"]:has-text("Unit")'
+    ).first();
+    const uomSearchGlass = this.page.locator(
+      'img[id*="uom" i], button[id*="uom" i], a[id*="uom" i], [title*="uom" i], [aria-label*="uom" i]'
+    ).first();
+
+    const lookupVisible =
+      (await uomLookupDialog.isVisible().catch(() => false)) || (await uomSearchGlass.isVisible().catch(() => false));
+
+    if (!lookupVisible) return;
+
+    await this.page.keyboard.press('Escape').catch(() => {});
+    await this.page.locator('.ui-dialog-titlebar-close, button[aria-label="Close"]').first().click().catch(() => {});
+    await uomLookupDialog.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+  }
+
   async openSpecialOrderItemsFromSidebar(): Promise<void> {
+    await this.ensureVisible(this.sidebarToggle, 20_000);
     await this.sidebarToggle.click();
+    await this.ensureVisible(this.purchasingLink, 20_000);
     await this.purchasingLink.click();
+    await this.ensureVisible(this.specialOrderItemsIcon, 20_000);
     await this.specialOrderItemsIcon.click();
     await this.page.waitForLoadState('domcontentloaded');
   }
@@ -83,8 +184,24 @@ export class POCreationPage {
   supplierCellInMainPopup(): Locator { return this.page.getByRole('cell', { name: /4 IMPRINT INC 14839|4 IMPRINT INC/i }).first(); }
   supplierTextInMainPopup(): Locator { return this.page.getByText(/4 IMPRINT INC 14839|4 IMPRINT INC/i).first(); }
   selectButtonGeneric(): Locator { return this.page.getByRole('button', { name: /^select$/i }).first(); }
-  dialogIframeCandidates(): Locator[] { return [this.page.locator('iframe[name="_dlgOpenerIframe6"]'), this.page.locator('iframe[name="_dlgOpenerIframe5"]')]; }
-  async getPoDialogFrame(): Promise<FrameLocator> { return (await this.firstVisible(this.dialogIframeCandidates(), 15_000)).contentFrame(); }
+  dialogIframeCandidates(): Locator[] {
+    return [
+      this.page.locator('iframe[name="_dlgOpenerIframe8"]'),
+      this.page.locator('iframe[name="_dlgOpenerIframe7"]'),
+      this.page.locator('iframe[name="_dlgOpenerIframe6"]'),
+      this.page.locator('iframe[name="_dlgOpenerIframe5"]'),
+      this.page.locator('iframe[name="_dlgOpenerIframe4"]'),
+    ];
+  }
+  async getPoDialogFrame(timeoutMs = 30_000): Promise<FrameLocator> {
+    const knownFrame = await this.firstVisible(this.dialogIframeCandidates(), Math.min(timeoutMs, 15_000)).catch(() => null);
+    if (knownFrame) return knownFrame.contentFrame();
+
+    const dynamicFrame = await this.findVisibleDialogIframe(timeoutMs);
+    if (dynamicFrame) return dynamicFrame.contentFrame();
+
+    throw new Error('PO dialog iframe did not appear within timeout.');
+  }
   dialogSubjectField(frame: FrameLocator): Locator { return frame.locator('#subject'); }
   dialogField17(frame: FrameLocator): Locator { return frame.locator('#FIELD17'); }
   dialogNoteField(frame: FrameLocator): Locator { return frame.locator('#Note'); }

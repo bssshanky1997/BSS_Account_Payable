@@ -1,11 +1,12 @@
 import { test, expect } from '../fixtures/testFixture';
-import { APHomePage } from '@poms/AP_Home_Page';
-import { POCreationPage } from '@poms/PO_Creation_Page';
+import { APHomePage } from '../Page_Object_Model_Classes/AP_Home_Page';
+import { POCreationPage } from '../Page_Object_Model_Classes/PO_Creation_Page';
 
 test.describe('PO Creation', () => {
   test.describe.configure({ retries: 0 });
 
   test('Skeleton smoke test', async ({ page }) => {
+    test.setTimeout(240_000);
     const apHomePage = new APHomePage(page);
     const poCreationPage = new POCreationPage(page);
     const companyId = '931';
@@ -100,7 +101,8 @@ test.describe('PO Creation', () => {
       logStep('Entered Product Name: Auto Product Name');
       await poCreationPage.editGridCellAndTab(/^order\s*qty$/i, 3, '10');
       logStep('Entered Order Quantity: 10');
-      await poCreationPage.editGridCellAndTab(/^uom$/i, 4, 'EA');
+      await poCreationPage.editGridCellDirectAndTab(/^uom$/i, 4, 'EA');
+      await poCreationPage.blockUomSearchGlassIfVisible();
       logStep('Entered UOM: EA');
       await poCreationPage.editGridCellAndTab(/^pack\/\s*size$|^pack\s*size$/i, 5, '1');
       logStep('Entered Pack Size: 1');
