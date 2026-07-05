@@ -71,6 +71,29 @@ export class POCreationPage {
     return null;
   }
 
+  private async findDialogIframeByContent(timeoutMs = 30_000): Promise<Locator | null> {
+    const deadline = Date.now() + timeoutMs;
+    const allIframes = this.page.locator('iframe');
+
+    while (Date.now() < deadline) {
+      if (this.page.isClosed()) return null;
+
+      const frameCount = await allIframes.count().catch(() => 0);
+      for (let i = 0; i < frameCount; i += 1) {
+        const iframe = allIframes.nth(i);
+        const frameLocator = iframe.contentFrame();
+
+        const hasSubject = (await frameLocator.locator('#subject').count().catch(() => 0)) > 0;
+        const hasField17 = (await frameLocator.locator('#FIELD17').count().catch(() => 0)) > 0;
+        if (hasSubject || hasField17) return iframe;
+      }
+
+      await this.page.waitForTimeout(200).catch(() => {});
+    }
+
+    return null;
+  }
+
   async scrollGridToRight(): Promise<void> {
     const gridViewport = this.page.locator('.ag-body-horizontal-scroll-viewport, .ag-center-cols-viewport').first();
     await this.ensureVisible(gridViewport, 20_000);
@@ -148,6 +171,7 @@ export class POCreationPage {
     await uomLookupDialog.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
   }
 
+  // Step 3: Navigate to Purchasing > Special Order Items.
   async openSpecialOrderItemsFromSidebar(): Promise<void> {
     await this.ensureVisible(this.sidebarToggle, 20_000);
     await this.sidebarToggle.click();
@@ -158,6 +182,24 @@ export class POCreationPage {
     await this.page.waitForLoadState('domcontentloaded');
   }
 
+  // Step 5: Ensure the first grid item is selected before Create PO.
+  async selectFirstItemRow(): Promise<void> {
+    const row = this.firstResultRow();
+    await this.ensureVisible(row, 20_000);
+    await row.scrollIntoViewIfNeeded().catch(() => {});
+    await row.click({ force: true });
+
+    const isSelected = async (): Promise<boolean> => {
+      const cls = (await row.getAttribute('class').catch(() => '')) ?? '';
+      return /\bag-row-selected\b/.test(cls);
+    };
+
+    if (!(await isSelected())) {
+      await row.click({ force: true });
+    }
+  }
+
+  // Step 4: Supplier selection helpers.
   async getSelectedSupplierValue(): Promise<string> {
     return (await this.supplierHiddenValueField.getAttribute('value').catch(() => null)) ?? '';
   }
@@ -168,6 +210,7 @@ export class POCreationPage {
   get selectSupplierButton(): Locator { return this.page.getByRole('button', { name: 'Select Supplier' }); }
   get formWindowIframe(): Locator { return this.page.locator('iframe[name="formWindow"]'); }
   get supplierHiddenValueField(): Locator { return this.page.locator('#FREEFORM_SUPPLIER_COMPANY_VALUE'); }
+  // Step 5: Item grid and Create PO controls.
   get createPoButton(): Locator { return this.page.getByRole('button', { name: /create\s*po/i }); }
   get submitButton(): Locator { return this.page.getByRole('button', { name: 'Submit' }); }
   get moreOptionsButton(): Locator { return this.page.getByTitle('More Options'); }
@@ -184,6 +227,7 @@ export class POCreationPage {
   supplierCellInMainPopup(): Locator { return this.page.getByRole('cell', { name: /4 IMPRINT INC 14839|4 IMPRINT INC/i }).first(); }
   supplierTextInMainPopup(): Locator { return this.page.getByText(/4 IMPRINT INC 14839|4 IMPRINT INC/i).first(); }
   selectButtonGeneric(): Locator { return this.page.getByRole('button', { name: /^select$/i }).first(); }
+  // Step 6 helpers: PO dialog iframe and fields.
   dialogIframeCandidates(): Locator[] {
     return [
       this.page.locator('iframe[name="_dlgOpenerIframe8"]'),
@@ -199,6 +243,9 @@ export class POCreationPage {
 
     const dynamicFrame = await this.findVisibleDialogIframe(timeoutMs);
     if (dynamicFrame) return dynamicFrame.contentFrame();
+
+    const contentMatchedFrame = await this.findDialogIframeByContent(timeoutMs);
+    if (contentMatchedFrame) return contentMatchedFrame.contentFrame();
 
     throw new Error('PO dialog iframe did not appear within timeout.');
   }

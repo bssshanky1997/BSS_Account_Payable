@@ -156,17 +156,19 @@ test.describe('PO Creation', () => {
       await page.waitForTimeout(1_000);
       logStep('Waited for 1 second after selecting Tax Code2.');
 
+      await poCreationPage.selectFirstItemRow();
+      logStep('Selected first item row before Create PO.');
+
       await poCreationPage.ensureVisible(poCreationPage.createPoButton, 20_000);
       await poCreationPage.clickWithOverlayGuard(poCreationPage.createPoButton);
       logStep('Clicked on Create PO button.');
       await page.waitForTimeout(1_000);
     });
 
-    await test.step('Step 7: PO Creation dialog details', async () => {
+    // Step 6: Complete PO creation dialog and submit flow.
+    await test.step('Step 6: PO Creation dialog details', async () => {
       await poCreationPage.ensureVisible(poCreationPage.overlay, 15_000).catch(() => {});
-      await poCreationPage.overlay.click({ force: true }).catch(() => {});
-
-      const poDialogFrame = await poCreationPage.getPoDialogFrame();
+      const poDialogFrame = await poCreationPage.getPoDialogFrame(45_000);
 
       const subject = poCreationPage.dialogSubjectField(poDialogFrame);
       await poCreationPage.ensureVisible(subject, 15_000);
@@ -241,23 +243,30 @@ test.describe('PO Creation', () => {
         console.log('[PO Creation] PO Number not found in URL.');
       }
 
-      const targetPo = generatedPoNumber ?? poNumberMatch?.[1] ?? 'P3229769';
-      await page
-        .goto(`https://appqa.birchstreet.co/j4/Home1.jsp?contentUrl=agfrontpage_UI4.jsp?screenid=5&isIncludedFromHome=1&loaddata=${targetPo}`)
-        .catch(() => {});
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForLoadState('networkidle').catch(() => {});
+      const targetPo = generatedPoNumber ?? poNumberMatch?.[1];
+      if (targetPo) {
+        await page
+          .goto(`/j4/Home1.jsp?contentUrl=agfrontpage_UI4.jsp?screenid=5&isIncludedFromHome=1&loaddata=${targetPo}`)
+          .catch(() => {});
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForLoadState('networkidle').catch(() => {});
 
-      const poRowCell = poCreationPage.poGridCell(targetPo);
-      if (await poRowCell.isVisible().catch(() => false)) {
-        await poCreationPage.ensureVisible(poRowCell, 20_000);
-        await poRowCell.click();
-        logStep(`Selected PO row: ${targetPo}`);
+        const poRowCell = poCreationPage.poGridCell(targetPo);
+        if (await poRowCell.isVisible().catch(() => false)) {
+          await poCreationPage.ensureVisible(poRowCell, 20_000);
+          await poRowCell.click();
+          logStep(`Selected PO row: ${targetPo}`);
+        } else {
+          const firstRow = poCreationPage.firstResultRow();
+          await poCreationPage.ensureVisible(firstRow, 20_000);
+          await firstRow.click();
+          logStep(`PO row ${targetPo} not visible; selected first available row before Submit.`);
+        }
       } else {
         const firstRow = poCreationPage.firstResultRow();
         await poCreationPage.ensureVisible(firstRow, 20_000);
         await firstRow.click();
-        logStep('Selected first available row before Submit.');
+        logStep('PO number unavailable from dialog/URL; selected first available row before Submit.');
       }
 
       const submitButton = poCreationPage.submitButton;
