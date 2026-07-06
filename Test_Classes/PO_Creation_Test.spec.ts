@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures/testFixture';
 import { APHomePage } from '../Page_Object_Model_Classes/AP_Home_Page';
 import { POCreationPage } from '../Page_Object_Model_Classes/PO_Creation_Page';
+import { ReceivingPOPage } from '../Page_Object_Model_Classes/Receiving_PO_Page';
 
 test.describe('PO Creation', () => {
   test.describe.configure({ retries: 0 });
@@ -9,8 +10,10 @@ test.describe('PO Creation', () => {
     test.setTimeout(240_000);
     const apHomePage = new APHomePage(page);
     const poCreationPage = new POCreationPage(page);
+    const receivingPoPage = new ReceivingPOPage(page);
     const companyId = '931';
     let categoryAttemptDone = false;
+    let createdPoNumber: string | undefined;
     const logStep = (message: string): void => {
       console.log(`[PO Creation] ${message}`);
     };
@@ -244,6 +247,7 @@ test.describe('PO Creation', () => {
       }
 
       const targetPo = generatedPoNumber ?? poNumberMatch?.[1];
+      createdPoNumber = targetPo;
       if (targetPo) {
         await page
           .goto(`/j4/Home1.jsp?contentUrl=agfrontpage_UI4.jsp?screenid=5&isIncludedFromHome=1&loaddata=${targetPo}`)
@@ -284,6 +288,12 @@ test.describe('PO Creation', () => {
       await poCreationPage.ensureVisible(reloadGridDataOption, 20_000);
       await reloadGridDataOption.click();
       logStep('Clicked More Options and selected Reload Grid Data.');
+    });
+
+    await test.step('Step 7: Search created PO in Manage Order and receive', async () => {
+      expect(createdPoNumber, 'PO number should be captured before receiving flow.').toBeTruthy();
+      await receivingPoPage.receivePoFromManageOrder(String(createdPoNumber));
+      logStep(`Received PO from Manage Order: ${createdPoNumber}`);
     });
   });
 });
