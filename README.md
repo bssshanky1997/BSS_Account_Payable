@@ -46,9 +46,16 @@ Set credentials before running tests, or create a `.env` file in `Bss_AccountPay
 $env:USERNAME = "your_username"
 $env:PASSWORD = "your_password"
 $env:SUBSCRIBER_ID = "your_subscriber_id"
+$env:TARGET_COMPANY_ID = "931"
+$env:RECEIVING_PO_NUMBER = "P123456"
+$env:RECEIVING_QTY = "1"
 $env:BASE_URL = "https://appqa.birchstreet.co"
 $env:API_BASE_URL = "https://qa-api.birchstreet.net"
 ```
+
+`Receiving_PO_Test.spec.ts` uses:
+- `RECEIVING_PO_NUMBER` (required for that test)
+- `RECEIVING_QTY` (optional, default `1`)
 
 For Right ID API automation (Admin Position screen 10523 via `DocumentLoad.jsp`/`DocumentSave.jsp`), optional vars:
 
@@ -65,6 +72,9 @@ Run all tests:
 ```bash
 npm test
 ```
+
+Nightly runner note:
+- `run-playwright-daily.ps1` executes `npx playwright test`, so specs under `Test_Classes/**/*.spec.ts` (including `Receiving_PO_Test.spec.ts`) are included automatically.
 
 Run headed:
 

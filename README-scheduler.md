@@ -114,6 +114,10 @@ Optional email delivery environment variables:
 - `REPORT_EMAIL_TO` (semicolon-separated recipients; defaults to configured recipients in `run-playwright-daily.ps1`)
 - `REPORT_EMAIL_CC` (optional semicolon-separated CC recipients)
 
+Receiving PO test environment variables (if running `Receiving_PO_Test.spec.ts` in scheduled or manual runs):
+- `RECEIVING_PO_NUMBER` (required for that spec)
+- `RECEIVING_QTY` (optional, defaults to `1`)
+
 The runner script also:
 
 - auto-installs Chromium browser binaries before the run (`npx playwright install chromium`)
