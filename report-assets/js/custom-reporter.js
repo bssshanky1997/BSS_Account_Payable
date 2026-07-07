@@ -4,7 +4,10 @@
   const expandAllButton = document.getElementById('expandAll');
   const collapseAllButton = document.getElementById('collapseAll');
   const downloadJsonButton = document.getElementById('downloadJson');
+  const downloadJsonTopButton = document.getElementById('downloadJsonTop');
   const downloadPdfButton = document.getElementById('downloadPdf');
+  const heroLogsButton = document.getElementById('heroLogs');
+  const heroScreenshotsButton = document.getElementById('heroScreenshots');
   const statusFilterButtons = Array.from(document.querySelectorAll('button[data-filter]'));
   const suiteFilterButtons = Array.from(document.querySelectorAll('button[data-suite-filter]'));
   const reportDataElement = document.getElementById('report-data');
@@ -78,7 +81,7 @@
   }
 
   if (downloadJsonButton && reportDataElement) {
-    downloadJsonButton.addEventListener('click', () => {
+    const handleDownloadJson = () => {
       const jsonText = reportDataElement.textContent || '{}';
       const blob = new Blob([jsonText], { type: 'application/json' });
       const objectUrl = URL.createObjectURL(blob);
@@ -87,12 +90,35 @@
       anchor.download = 'enterprise-report.json';
       anchor.click();
       URL.revokeObjectURL(objectUrl);
-    });
+    };
+
+    downloadJsonButton.addEventListener('click', handleDownloadJson);
+    if (downloadJsonTopButton) {
+      downloadJsonTopButton.addEventListener('click', handleDownloadJson);
+    }
   }
 
   if (downloadPdfButton) {
     downloadPdfButton.addEventListener('click', () => {
       window.print();
+    });
+  }
+
+  if (heroLogsButton) {
+    heroLogsButton.addEventListener('click', () => {
+      const logsHeading = Array.from(document.querySelectorAll('h4')).find(
+        (heading) => heading.textContent && heading.textContent.toLowerCase().includes('logs')
+      );
+      logsHeading?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  if (heroScreenshotsButton) {
+    heroScreenshotsButton.addEventListener('click', () => {
+      const screenshotHeading = Array.from(document.querySelectorAll('h4')).find(
+        (heading) => heading.textContent && heading.textContent.toLowerCase().includes('screenshots')
+      );
+      screenshotHeading?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }
 

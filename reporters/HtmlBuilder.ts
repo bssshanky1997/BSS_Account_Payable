@@ -101,30 +101,52 @@ function renderCommonBadges(testCase: NormalizedTestCase): string {
  * Renders functional suite layout with full test narrative.
  */
 function renderFunctionalTemplate(testCase: NormalizedTestCase): string {
+  const conciseSteps = testCase.testSteps
+    .filter((step) => {
+      const normalized = step.title.toLowerCase();
+      return !normalized.includes('fixture') && !normalized.includes('after hooks') && !normalized.includes('before hooks');
+    })
+    .slice(0, 12);
+
   return `
-    <article class="test-card" data-status="${escapeHtml(testCase.status)}" data-suite="${escapeHtml(testCase.suiteType)}" data-search="${escapeHtml(`${testCase.tcId} ${testCase.testName}`.toLowerCase())}">
+    <article class="test-card functional-card" data-status="${escapeHtml(testCase.status)}" data-suite="${escapeHtml(testCase.suiteType)}" data-search="${escapeHtml(`${testCase.tcId} ${testCase.testName}`.toLowerCase())}">
       <header class="test-card-header">
         <div class="test-heading">
           <h3>${escapeHtml(testCase.testName)}</h3>
-          <p class="tc-id">TC ID: ${escapeHtml(testCase.tcId)}</p>
+          <p class="tc-id">${escapeHtml(testCase.tcId)}</p>
         </div>
         ${renderCommonBadges(testCase)}
       </header>
 
-      <section class="test-summary-grid">
-        <div><strong>Description</strong><p>${escapeHtml(testCase.description)}</p></div>
-        <div><strong>Preconditions</strong><p>${escapeHtml(testCase.preconditions)}</p></div>
-        <div><strong>Test Data</strong><p>${escapeHtml(testCase.testData)}</p></div>
-        <div><strong>Expected Result</strong><p>${escapeHtml(testCase.expectedResult)}</p></div>
-        <div><strong>Actual Result</strong><p>${escapeHtml(testCase.actualResult)}</p></div>
-        <div><strong>Browser / Environment</strong><p>${escapeHtml(testCase.browser)} / ${escapeHtml(testCase.environment)}</p></div>
+      <p class="functional-one-line">${escapeHtml(testCase.description)}</p>
+
+      <section class="functional-main">
+        <section class="functional-overview">
+          <div><strong>Description</strong><p>${escapeHtml(testCase.description)}</p></div>
+          <div><strong>Preconditions</strong><p>${escapeHtml(testCase.preconditions)}</p></div>
+          <div><strong>Test Data</strong><p>${escapeHtml(testCase.testData)}</p></div>
+          <div><strong>Expected Result</strong><p>${escapeHtml(testCase.expectedResult)}</p></div>
+          <div><strong>Actual Result</strong><p>${escapeHtml(testCase.actualResult)}</p></div>
+          <div><strong>Execution</strong><p>${escapeHtml(testCase.browser)} / ${escapeHtml(testCase.environment)} / ${escapeHtml(formatDuration(testCase.executionTimeMs))}</p></div>
+        </section>
+
+        <section class="functional-steps">
+          <h4>Steps</h4>
+          <ol class="functional-steps-list">
+            ${
+              conciseSteps.length > 0
+                ? conciseSteps.map((step) => `<li>${escapeHtml(step.title)}</li>`).join('\n')
+                : '<li>Not Provided</li>'
+            }
+          </ol>
+        </section>
       </section>
 
       <details class="test-details">
-        <summary>View Detailed Execution</summary>
+        <summary>Detailed Evidence</summary>
         <div class="details-content">
           <section>
-            <h4>Test Steps</h4>
+            <h4>All Captured Steps</h4>
             <ul class="step-list">
               ${renderSteps(testCase.testSteps)}
             </ul>
@@ -141,10 +163,8 @@ function renderFunctionalTemplate(testCase: NormalizedTestCase): string {
           </section>
 
           <section>
-            <h4>Attachments</h4>
-            <ul class="attachment-list">
-              ${renderAttachmentList(testCase.attachments)}
-            </ul>
+            <h4>Logs</h4>
+            ${renderConsoleLogs(testCase.consoleLogs)}
           </section>
 
           <section>
@@ -153,8 +173,10 @@ function renderFunctionalTemplate(testCase: NormalizedTestCase): string {
           </section>
 
           <section>
-            <h4>Console Logs</h4>
-            ${renderConsoleLogs(testCase.consoleLogs)}
+            <h4>Attachments</h4>
+            <ul class="attachment-list">
+              ${renderAttachmentList(testCase.attachments)}
+            </ul>
           </section>
         </div>
       </details>
@@ -224,6 +246,70 @@ function buildReportTitle(testCases: NormalizedTestCase[]): string {
 }
 
 /**
+ * Detects when report contains only Functional_Test cases.
+ */
+function isFunctionalOnlyReport(testCases: NormalizedTestCase[]): boolean {
+  return testCases.length > 0 && testCases.every((testCase) => testCase.suiteType === 'functional');
+}
+
+/**
+ * Builds report header body based on suite mode.
+ */
+function renderReportHeader(
+  header: ReportHeaderMetadata,
+  metrics: DashboardMetrics,
+  reportTitle: string,
+  functionalOnly: boolean
+): string {
+  if (!functionalOnly) {
+    return `
+    <section class="report-header">
+      <div class="report-title-wrap">
+        <h1>${escapeHtml(reportTitle)}</h1>
+        <p>Auto-detected suite layout report.</p>
+      </div>
+      <div class="header-grid">
+        <div><span>Company Name</span><strong>${escapeHtml(header.companyName)}</strong></div>
+        <div><span>Subscriber ID</span><strong>${escapeHtml(header.subscriberId)}</strong></div>
+        <div><span>Company ID</span><strong>${escapeHtml(header.companyId)}</strong></div>
+        <div><span>Build Number</span><strong>${escapeHtml(header.buildNumber)}</strong></div>
+        <div><span>Run ID</span><strong>${escapeHtml(header.runId)}</strong></div>
+        <div><span>Execution Date</span><strong>${escapeHtml(header.executionDate)}</strong></div>
+        <div><span>Browser</span><strong>${escapeHtml(header.browser)}</strong></div>
+        <div><span>Environment</span><strong>${escapeHtml(header.environment)}</strong></div>
+        <div><span>Total Execution Time</span><strong>${escapeHtml(header.totalExecutionTime)}</strong></div>
+      </div>
+    </section>
+    `;
+  }
+
+  return `
+    <section class="report-header functional-hero">
+      <div class="functional-hero-top">
+        <div class="report-title-wrap">
+          <p class="functional-meta">${escapeHtml(header.companyName)} • Subscriber ${escapeHtml(header.subscriberId)} • Company ${escapeHtml(header.companyId)}</p>
+          <h1>${escapeHtml(reportTitle)}</h1>
+          <p class="functional-submeta">Interactive test report • Run ${escapeHtml(header.runId)}</p>
+        </div>
+        <div class="functional-hero-actions">
+          <button class="toolbar-button" id="heroLogs">Logs</button>
+          <button class="toolbar-button" id="heroScreenshots">Screenshots</button>
+          <button class="toolbar-button" id="downloadJsonTop">Results JSON</button>
+        </div>
+      </div>
+      <div class="functional-kpis">
+        <article class="kpi-circle"><strong>${metrics.passPercentage}%</strong></article>
+        <article><span>${metrics.totalTests} total</span></article>
+        <article><span>${metrics.passed} pass</span></article>
+        <article><span>${metrics.failed} fail</span></article>
+        <article><span>${metrics.blocked} blocked</span></article>
+        <article><span>${metrics.skipped} skip</span></article>
+      </div>
+    </section>
+  `;
+}
+
+/**
  * Routes card rendering to suite-specific template.
  */
 function renderTestCaseCard(testCase: NormalizedTestCase): string {
@@ -249,6 +335,7 @@ export function buildHtmlReport(
   embeddedJson: string
 ): string {
   const reportTitle = buildReportTitle(testCases);
+  const functionalOnly = isFunctionalOnlyReport(testCases);
 
   return `
 <!DOCTYPE html>
@@ -259,25 +346,9 @@ export function buildHtmlReport(
   <title>Enterprise Automation Report</title>
   <link rel="stylesheet" href="./assets/css/custom-reporter.css" />
 </head>
-<body>
+<body class="${functionalOnly ? 'functional-only' : ''}">
   <main class="container">
-    <section class="report-header">
-      <div class="report-title-wrap">
-        <h1>${escapeHtml(reportTitle)}</h1>
-        <p>Auto-detected suite layout report.</p>
-      </div>
-      <div class="header-grid">
-        <div><span>Company Name</span><strong>${escapeHtml(header.companyName)}</strong></div>
-        <div><span>Subscriber ID</span><strong>${escapeHtml(header.subscriberId)}</strong></div>
-        <div><span>Company ID</span><strong>${escapeHtml(header.companyId)}</strong></div>
-        <div><span>Build Number</span><strong>${escapeHtml(header.buildNumber)}</strong></div>
-        <div><span>Run ID</span><strong>${escapeHtml(header.runId)}</strong></div>
-        <div><span>Execution Date</span><strong>${escapeHtml(header.executionDate)}</strong></div>
-        <div><span>Browser</span><strong>${escapeHtml(header.browser)}</strong></div>
-        <div><span>Environment</span><strong>${escapeHtml(header.environment)}</strong></div>
-        <div><span>Total Execution Time</span><strong>${escapeHtml(header.totalExecutionTime)}</strong></div>
-      </div>
-    </section>
+    ${renderReportHeader(header, metrics, reportTitle, functionalOnly)}
 
     <section class="dashboard">
       <h2>Dashboard</h2>

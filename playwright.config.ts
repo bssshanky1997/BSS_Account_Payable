@@ -46,14 +46,14 @@ export default defineConfig({
   /* Reports */
   reporter: [
     ['html', {
-      outputFolder: 'reports/report/html-report',
+      outputFolder: 'artifacts/playwright-html-report',
       open: isScheduledRun ? 'never' : 'always'
     }],
     ['json', {
-      outputFile: 'reports/result/json-report/results.json'
+      outputFile: 'artifacts/playwright-json/results.json'
     }],
     ['./reporters/CustomReporter.ts', {
-      outputDir: 'Reports/custom-html-report',
+      outputDir: 'Reports',
       assetsDir: 'report-assets',
       subscriberId: '641',
       companyId: '931',
@@ -61,7 +61,7 @@ export default defineConfig({
     }],
     ['list'],
     ['allure-playwright', {
-      resultsDir: 'reports/result/allure-results'
+      resultsDir: 'artifacts/allure-results'
     }],
   ],
 
@@ -115,7 +115,7 @@ export default defineConfig({
   },
 
   /* Test artifacts */
-  outputDir: './reports/failed-screenshot',
+  outputDir: './test-results',
 
   /* Browser projects */
   projects: [

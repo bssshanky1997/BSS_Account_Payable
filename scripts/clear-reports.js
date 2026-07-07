@@ -4,14 +4,22 @@ const path = require('path');
 const projectRoot = path.resolve(__dirname, '..');
 
 const dirsToClear = [
-  'reports/report',
-  'reports/result',
-  'reports/screenshot',
-  'reports/failed-screenshot',
+  'Reports/Functional_Test',
+  'Reports/Regression_Test',
+  'Reports/Mixed_Test',
+  'artifacts/playwright-html-report',
+  'artifacts/playwright-json',
+  'artifacts/allure-results',
+  'test-results',
   'logs'
 ];
 
 const legacyPathsToRemove = [
+  'Reports/custom-html-report',
+  'reports/report',
+  'reports/result',
+  'reports/screenshot',
+  'reports/failed-screenshot',
   'reports/html-report',
   'reports/allure-results',
   'reports/allure-report',
@@ -22,7 +30,7 @@ const legacyPathsToRemove = [
   'reports-archive',
   'excel-archive',
   'screenshots',
-  'test-results'
+  'artifacts/allure-report'
 ];
 
 function clearDirectory(absPath) {
@@ -50,4 +58,4 @@ for (const legacyRelativePath of legacyPathsToRemove) {
   console.log(`Removed legacy path: ${legacyAbsolutePath}`);
 }
 
-console.log('Unified report folders were reset successfully.');
+console.log('Suite report folders were reset successfully.');

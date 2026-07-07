@@ -52,6 +52,7 @@ class CustomReporter implements Reporter {
   private readonly testCases: NormalizedTestCase[] = [];
   private runStartTimeMs = 0;
   private runEndTimeMs = 0;
+  private resolvedOutputRootDir = '';
   private resolvedOutputDir = '';
   private resolvedAssetsSourceDir = '';
 
@@ -63,10 +64,15 @@ class CustomReporter implements Reporter {
     this.config = config;
     this.runStartTimeMs = Date.now();
 
-    this.resolvedOutputDir = path.resolve(process.cwd(), this.options.outputDir ?? 'Reports/custom-html-report');
+    const configuredOutputPath = path.resolve(process.cwd(), this.options.outputDir ?? 'Reports');
+    this.resolvedOutputRootDir =
+      path.basename(configuredOutputPath).toLowerCase() === 'custom-html-report'
+        ? path.dirname(configuredOutputPath)
+        : configuredOutputPath;
+    this.resolvedOutputDir = this.resolvedOutputRootDir;
     this.resolvedAssetsSourceDir = path.resolve(process.cwd(), this.options.assetsDir ?? 'report-assets');
 
-    fs.mkdirSync(this.resolvedOutputDir, { recursive: true });
+    fs.mkdirSync(this.resolvedOutputRootDir, { recursive: true });
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
@@ -126,6 +132,8 @@ class CustomReporter implements Reporter {
     this.runEndTimeMs = Date.now();
     const durationMs = this.runEndTimeMs - this.runStartTimeMs;
 
+    this.resolvedOutputDir = path.join(this.resolvedOutputRootDir, this.resolveSuiteFolderName(), 'custom-html-report');
+    fs.mkdirSync(this.resolvedOutputDir, { recursive: true });
     this.copyAssets();
 
     const metrics = computeDashboardMetrics(this.testCases);
@@ -143,6 +151,26 @@ class CustomReporter implements Reporter {
 
     fs.writeFileSync(path.join(this.resolvedOutputDir, 'index.html'), reportHtml, 'utf8');
     fs.writeFileSync(path.join(this.resolvedOutputDir, 'report-data.json'), reportJson, 'utf8');
+  }
+
+  /**
+   * Resolves suite-specific folder name for report output.
+   */
+  private resolveSuiteFolderName(): string {
+    const suiteTypes = Array.from(new Set(this.testCases.map((testCase) => testCase.suiteType)));
+    const hasFunctional = suiteTypes.includes('functional');
+    const hasRegression = suiteTypes.includes('regression');
+
+    if (hasFunctional && hasRegression) {
+      return 'Mixed_Test';
+    }
+    if (hasFunctional) {
+      return 'Functional_Test';
+    }
+    if (hasRegression) {
+      return 'Regression_Test';
+    }
+    return 'General_Test';
   }
 
   /**
