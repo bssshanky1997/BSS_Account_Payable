@@ -86,20 +86,29 @@ function renderConsoleLogs(logs: string[]): string {
 }
 
 /**
- * Converts testcase data into card markup.
+ * Renders status and duration badges shared by both templates.
  */
-function renderTestCaseCard(testCase: NormalizedTestCase): string {
+function renderCommonBadges(testCase: NormalizedTestCase): string {
   return `
-    <article class="test-card" data-status="${escapeHtml(testCase.status)}" data-search="${escapeHtml(`${testCase.tcId} ${testCase.testName}`.toLowerCase())}">
+    <div class="test-badges">
+      <span class="status-badge status-${escapeHtml(testCase.status)}">${escapeHtml(testCase.status.toUpperCase())}</span>
+      <span class="duration-badge">${escapeHtml(formatDuration(testCase.executionTimeMs))}</span>
+    </div>
+  `;
+}
+
+/**
+ * Renders functional suite layout with full test narrative.
+ */
+function renderFunctionalTemplate(testCase: NormalizedTestCase): string {
+  return `
+    <article class="test-card" data-status="${escapeHtml(testCase.status)}" data-suite="${escapeHtml(testCase.suiteType)}" data-search="${escapeHtml(`${testCase.tcId} ${testCase.testName}`.toLowerCase())}">
       <header class="test-card-header">
         <div class="test-heading">
           <h3>${escapeHtml(testCase.testName)}</h3>
           <p class="tc-id">TC ID: ${escapeHtml(testCase.tcId)}</p>
         </div>
-        <div class="test-badges">
-          <span class="status-badge status-${escapeHtml(testCase.status)}">${escapeHtml(testCase.status.toUpperCase())}</span>
-          <span class="duration-badge">${escapeHtml(formatDuration(testCase.executionTimeMs))}</span>
-        </div>
+        ${renderCommonBadges(testCase)}
       </header>
 
       <section class="test-summary-grid">
@@ -154,6 +163,83 @@ function renderTestCaseCard(testCase: NormalizedTestCase): string {
 }
 
 /**
+ * Renders compact regression suite layout.
+ */
+function renderRegressionTemplate(testCase: NormalizedTestCase): string {
+  const failedScreenshotHtml = testCase.failedScreenshotPath
+    ? `<a href="${escapeHtml(testCase.failedScreenshotPath)}" target="_blank" rel="noopener noreferrer">Open Failed Screenshot</a>`
+    : '<span class="empty-value">Not Provided</span>';
+
+  const traceHtml = testCase.tracePath
+    ? `<a href="${escapeHtml(testCase.tracePath)}" target="_blank" rel="noopener noreferrer">Open Trace</a>`
+    : '<span class="empty-value">Not Provided</span>';
+
+  const videoHtml = testCase.videoPath
+    ? `<a href="${escapeHtml(testCase.videoPath)}" target="_blank" rel="noopener noreferrer">Open Video</a>`
+    : '<span class="empty-value">Not Provided</span>';
+
+  return `
+    <article class="test-card" data-status="${escapeHtml(testCase.status)}" data-suite="${escapeHtml(testCase.suiteType)}" data-search="${escapeHtml(`${testCase.testName}`.toLowerCase())}">
+      <header class="test-card-header">
+        <div class="test-heading">
+          <h3>${escapeHtml(testCase.testName)}</h3>
+          <p class="tc-id">Suite: Regression_Test</p>
+        </div>
+        ${renderCommonBadges(testCase)}
+      </header>
+
+      <section class="test-summary-grid">
+        <div><strong>Browser</strong><p>${escapeHtml(testCase.browser)}</p></div>
+        <div><strong>Error Message</strong><p>${escapeHtml(testCase.errorMessage || 'Not Provided')}</p></div>
+        <div><strong>Failed Screenshot</strong><p>${failedScreenshotHtml}</p></div>
+        <div><strong>Trace</strong><p>${traceHtml}</p></div>
+        <div><strong>Video</strong><p>${videoHtml}</p></div>
+      </section>
+
+      <details class="test-details">
+        <summary>View Logs</summary>
+        <div class="details-content">
+          <section>
+            <h4>Logs</h4>
+            ${renderConsoleLogs(testCase.consoleLogs)}
+          </section>
+        </div>
+      </details>
+    </article>
+  `;
+}
+
+/**
+ * Builds suite-aware report title.
+ */
+function buildReportTitle(testCases: NormalizedTestCase[]): string {
+  const suiteSet = new Set(testCases.map((testCase) => testCase.suiteType));
+  if (suiteSet.size === 1 && suiteSet.has('regression')) {
+    return 'Regression_Test Report';
+  }
+  if (suiteSet.size === 1 && suiteSet.has('functional')) {
+    return 'Functional_Test Report';
+  }
+  return 'Functional_Test + Regression_Test Report';
+}
+
+/**
+ * Routes card rendering to suite-specific template.
+ */
+function renderTestCaseCard(testCase: NormalizedTestCase): string {
+  if (testCase.suiteType === 'functional') {
+    return renderFunctionalTemplate(testCase);
+  }
+
+  if (testCase.suiteType === 'regression') {
+    return renderRegressionTemplate(testCase);
+  }
+
+  // Unknown suites default to compact template.
+  return renderRegressionTemplate(testCase);
+}
+
+/**
  * Builds final report HTML content with modular sections.
  */
 export function buildHtmlReport(
@@ -162,6 +248,8 @@ export function buildHtmlReport(
   testCases: NormalizedTestCase[],
   embeddedJson: string
 ): string {
+  const reportTitle = buildReportTitle(testCases);
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -175,14 +263,13 @@ export function buildHtmlReport(
   <main class="container">
     <section class="report-header">
       <div class="report-title-wrap">
-        <h1>Enterprise Automation Execution Report</h1>
-        <p>Premium quality report for enterprise Playwright executions.</p>
+        <h1>${escapeHtml(reportTitle)}</h1>
+        <p>Auto-detected suite layout report.</p>
       </div>
       <div class="header-grid">
         <div><span>Company Name</span><strong>${escapeHtml(header.companyName)}</strong></div>
         <div><span>Subscriber ID</span><strong>${escapeHtml(header.subscriberId)}</strong></div>
         <div><span>Company ID</span><strong>${escapeHtml(header.companyId)}</strong></div>
-        <div><span>CD Number</span><strong>${escapeHtml(header.cdNumber)}</strong></div>
         <div><span>Build Number</span><strong>${escapeHtml(header.buildNumber)}</strong></div>
         <div><span>Run ID</span><strong>${escapeHtml(header.runId)}</strong></div>
         <div><span>Execution Date</span><strong>${escapeHtml(header.executionDate)}</strong></div>
@@ -213,6 +300,9 @@ export function buildHtmlReport(
         <button data-filter="failed" class="toolbar-button">Filter by Fail</button>
         <button data-filter="blocked" class="toolbar-button">Filter by Blocked</button>
         <button data-filter="skipped" class="toolbar-button">Filter by Skipped</button>
+        <button data-suite-filter="all" class="toolbar-button">All Suites</button>
+        <button data-suite-filter="functional" class="toolbar-button">Functional_Test</button>
+        <button data-suite-filter="regression" class="toolbar-button">Regression_Test</button>
         <button id="expandAll" class="toolbar-button">Expand All</button>
         <button id="collapseAll" class="toolbar-button">Collapse All</button>
         <button id="downloadJson" class="toolbar-button">Download JSON</button>

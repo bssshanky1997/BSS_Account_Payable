@@ -18,11 +18,13 @@ import {
   NormalizedTestCase,
   createStableId,
   deriveNarrativeText,
+  detectSuiteType,
   detectAttachmentKind,
   extractExpectedAndActual,
   extractTcId,
   formatDuration,
   formatExecutionDate,
+  getFirstAttachmentPathByKind,
   getReportRelativePath,
   normalizeStatus,
   valueOrFallback,
@@ -91,10 +93,12 @@ class CustomReporter implements Reporter {
       'QA'
     );
 
+    const attachments = this.normalizeAttachments(result);
     const normalizedTestCase: NormalizedTestCase = {
       id: createStableId(`${test.location.file}-${test.location.line}-${testName}`),
       tcId,
       testName,
+      suiteType: detectSuiteType(test.location.file),
       status,
       executionTimeMs,
       description: narrative.description,
@@ -105,11 +109,14 @@ class CustomReporter implements Reporter {
       actualResult: expectedActual.actual,
       errorMessage: errorMessage || 'Not Provided',
       stackTrace: stackTrace || 'Not Provided',
-      attachments: this.normalizeAttachments(result),
+      attachments,
       consoleLogs: this.extractConsoleLogs(result),
       suitePath: test.titlePath().slice(0, -1),
       browser,
       environment,
+      failedScreenshotPath: getFirstAttachmentPathByKind(attachments, 'screenshot'),
+      tracePath: getFirstAttachmentPathByKind(attachments, 'trace'),
+      videoPath: getFirstAttachmentPathByKind(attachments, 'video'),
     };
 
     this.testCases.push(normalizedTestCase);

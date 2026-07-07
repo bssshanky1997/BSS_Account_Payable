@@ -60,6 +60,7 @@ export interface NormalizedTestCase {
   id: string;
   tcId: string;
   testName: string;
+  suiteType: TestSuiteType;
   status: EnterpriseStatus;
   executionTimeMs: number;
   description: string;
@@ -75,7 +76,15 @@ export interface NormalizedTestCase {
   suitePath: string[];
   browser: string;
   environment: string;
+  failedScreenshotPath?: string;
+  tracePath?: string;
+  videoPath?: string;
 }
+
+/**
+ * Logical suite buckets used for template selection.
+ */
+export type TestSuiteType = 'functional' | 'regression' | 'unknown';
 
 /**
  * Returns a string fallback if the source value is empty.
@@ -200,6 +209,30 @@ export function detectAttachmentKind(name: string, attachmentPath: string): Atta
   }
 
   return 'other';
+}
+
+/**
+ * Detects suite type from source file path.
+ */
+export function detectSuiteType(filePath: string): TestSuiteType {
+  const normalized = filePath.toLowerCase().replace(/\\/g, '/');
+  if (normalized.includes('/functional_test/')) {
+    return 'functional';
+  }
+  if (normalized.includes('/regression_test/')) {
+    return 'regression';
+  }
+  return 'unknown';
+}
+
+/**
+ * Returns first matching attachment path by kind.
+ */
+export function getFirstAttachmentPathByKind(
+  attachments: NormalizedAttachment[],
+  kind: AttachmentKind
+): string | undefined {
+  return attachments.find((attachment) => attachment.kind === kind)?.path;
 }
 
 /**

@@ -5,7 +5,8 @@
   const collapseAllButton = document.getElementById('collapseAll');
   const downloadJsonButton = document.getElementById('downloadJson');
   const downloadPdfButton = document.getElementById('downloadPdf');
-  const filterButtons = Array.from(document.querySelectorAll('button[data-filter]'));
+  const statusFilterButtons = Array.from(document.querySelectorAll('button[data-filter]'));
+  const suiteFilterButtons = Array.from(document.querySelectorAll('button[data-suite-filter]'));
   const reportDataElement = document.getElementById('report-data');
 
   if (!cardsContainer) {
@@ -13,7 +14,8 @@
   }
 
   const cards = Array.from(cardsContainer.querySelectorAll('.test-card'));
-  let activeFilter = 'all';
+  let activeStatusFilter = 'all';
+  let activeSuiteFilter = 'all';
 
   function normalizeText(value) {
     return String(value || '').toLowerCase();
@@ -24,12 +26,14 @@
 
     cards.forEach((card) => {
       const cardStatus = normalizeText(card.getAttribute('data-status'));
+      const cardSuite = normalizeText(card.getAttribute('data-suite'));
       const cardSearch = normalizeText(card.getAttribute('data-search'));
 
-      const matchesStatus = activeFilter === 'all' || activeFilter === cardStatus;
+      const matchesStatus = activeStatusFilter === 'all' || activeStatusFilter === cardStatus;
+      const matchesSuite = activeSuiteFilter === 'all' || activeSuiteFilter === cardSuite;
       const matchesQuery = query.length === 0 || cardSearch.includes(query);
 
-      card.style.display = matchesStatus && matchesQuery ? '' : 'none';
+      card.style.display = matchesStatus && matchesSuite && matchesQuery ? '' : 'none';
     });
   }
 
@@ -37,10 +41,19 @@
     searchInput.addEventListener('input', applyFilters);
   }
 
-  filterButtons.forEach((button) => {
+  statusFilterButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      activeFilter = button.getAttribute('data-filter') || 'all';
-      filterButtons.forEach((item) => item.classList.remove('active'));
+      activeStatusFilter = button.getAttribute('data-filter') || 'all';
+      statusFilterButtons.forEach((item) => item.classList.remove('active'));
+      button.classList.add('active');
+      applyFilters();
+    });
+  });
+
+  suiteFilterButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      activeSuiteFilter = button.getAttribute('data-suite-filter') || 'all';
+      suiteFilterButtons.forEach((item) => item.classList.remove('active'));
       button.classList.add('active');
       applyFilters();
     });
