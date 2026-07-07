@@ -223,6 +223,15 @@ export class POCreationPage {
   get firstTaxCodeRow(): Locator { return this.page.getByRole('gridcell', { name: 'TAX CODE' }).nth(1); }
   get tcosCell(): Locator { return this.page.getByRole('gridcell', { name: 'TCOS' }); }
   get glAccountCell(): Locator { return this.page.getByRole('gridcell', { name: '1400.345540' }); }
+  get budgetGlAccountsDialog(): Locator {
+    return this.page.locator('.ui-dialog:has-text("Budget GL Accounts"), [role="dialog"]:has-text("Budget GL Accounts")').first();
+  }
+  get glLookupFirstRow(): Locator {
+    return this.budgetGlAccountsDialog.locator('td').filter({ hasText: /^\d{4}\.\d{6}$/ }).first();
+  }
+  get glLookupSelectButton(): Locator {
+    return this.budgetGlAccountsDialog.getByRole('button', { name: 'Select', exact: true });
+  }
   get supplierReturnButton(): Locator { return this.page.locator('#RetSupp').first(); }
   supplierCellInMainPopup(): Locator { return this.page.getByRole('cell', { name: /4 IMPRINT INC 14839|4 IMPRINT INC/i }).first(); }
   supplierTextInMainPopup(): Locator { return this.page.getByText(/4 IMPRINT INC 14839|4 IMPRINT INC/i).first(); }

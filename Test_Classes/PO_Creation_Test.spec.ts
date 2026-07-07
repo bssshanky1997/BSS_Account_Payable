@@ -204,38 +204,48 @@ test.describe('PO Creation', () => {
       await selectExact.click();
       await page.waitForTimeout(500);
 
-      const zoomGl = poCreationPage.dialogZoomGl(poDialogFrame);
-      await poCreationPage.ensureVisible(zoomGl, 15_000);
-      await zoomGl.click();
-
-      await poCreationPage.ensureVisible(poCreationPage.glAccountCell, 15_000);
-      await poCreationPage.glAccountCell.click();
-      await poCreationPage.ensureVisible(selectExact, 15_000);
-      await selectExact.click();
-      await page.waitForTimeout(500);
-
-      const glImgCell = poCreationPage.dialogGlImageCell(poDialogFrame);
-      await poCreationPage.ensureVisible(glImgCell, 15_000);
-      await glImgCell.click();
-      await poCreationPage.ensureVisible(poCreationPage.glAccountCell, 15_000);
-      await poCreationPage.glAccountCell.click();
-      await poCreationPage.ensureVisible(selectExact, 15_000);
-      await selectExact.click();
-      await page.waitForTimeout(500);
+      await page.locator('iframe[name="_dlgOpenerIframe5"]').contentFrame().locator('#zoom_gl').click();
+      const primaryGlRow = page.getByRole('gridcell', { name: '1400.345540' });
+      await poCreationPage.ensureVisible(primaryGlRow, 15_000);
+      await primaryGlRow.click();
+      const selectButtonInGlLookup = page.getByRole('button', { name: 'Select', exact: true });
+      await poCreationPage.ensureVisible(selectButtonInGlLookup, 15_000);
+      await selectButtonInGlLookup.click();
+      await page
+        .locator('iframe[name="_dlgOpenerIframe5"]')
+        .contentFrame()
+        .getByRole('rowgroup')
+        .filter({ hasText: 'Tax exempt Freight based on' })
+        .getByRole('img')
+        .nth(1)
+        .click();
+      const freightGlRow = page.getByRole('gridcell', { name: '1400.345540' });
+      await poCreationPage.ensureVisible(freightGlRow, 15_000);
+      await freightGlRow.click();
+      await poCreationPage.ensureVisible(selectButtonInGlLookup, 15_000);
+      await selectButtonInGlLookup.click();
+      await page.waitForTimeout(700);
+      logStep('Selected GL row 1400.345540 for primary and freight lookups.');
 
       let generatedPoNumber: string | undefined;
-      page.once('dialog', dialog => {
-        const message = dialog.message();
-        const poMatch = message.match(/P\d+/i);
-        if (poMatch?.[0]) {
-          generatedPoNumber = poMatch[0];
-        }
-        console.log(`Dialog message: ${message}`);
-        dialog.dismiss().catch(() => {});
-      });
+      let submitDialogMessage: string | undefined;
+      const poDialogCapture = page
+        .waitForEvent('dialog', { timeout: 10_000 })
+        .then(async dialog => {
+          const message = dialog.message();
+          submitDialogMessage = message;
+          const poMatch = message.match(/P\d+/i);
+          if (poMatch?.[0]) {
+            generatedPoNumber = poMatch[0];
+          }
+          console.log(`Dialog message: ${message}`);
+          await dialog.dismiss().catch(() => {});
+        })
+        .catch(() => {});
       const okButton = poCreationPage.dialogOkButton(poDialogFrame);
       await poCreationPage.ensureVisible(okButton, 15_000);
       await okButton.click();
+      await poDialogCapture;
       await page.waitForTimeout(3_000);
 
       // Print PO number in test output when available.
@@ -267,9 +277,30 @@ test.describe('PO Creation', () => {
           logStep(`PO row ${targetPo} not visible; selected first available row before Submit.`);
         }
       } else {
+        if (/invalid\s*gl\s*account/i.test(submitDialogMessage ?? '')) {
+          throw new Error(
+            `PO number not generated after GL selection. Dialog response: ${submitDialogMessage ?? 'No dialog captured'}.`
+          );
+        }
+
+        const inlineErrorText = (
+          await poDialogFrame
+            .locator('.error, .ui-state-error, [class*="error"], [id*="error"]')
+            .allInnerTexts()
+            .catch(() => [])
+        )
+          .map(txt => txt.trim())
+          .filter(Boolean)
+          .join(' | ');
+        if (/invalid\s*gl\s*account/i.test(inlineErrorText)) {
+          throw new Error(`PO number not generated after GL selection. Inline error: ${inlineErrorText}`);
+        }
+
+        // If PO number is not shown in URL/dialog, continue with the current selected row flow.
+        await page.keyboard.press('Escape').catch(() => {});
         const firstRow = poCreationPage.firstResultRow();
         await poCreationPage.ensureVisible(firstRow, 20_000);
-        await firstRow.click();
+        await firstRow.click({ force: true });
         logStep('PO number unavailable from dialog/URL; selected first available row before Submit.');
       }
 

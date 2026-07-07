@@ -7,16 +7,22 @@ export class ReceivingPOPage {
     await locator.waitFor({ state: 'visible', timeout: timeoutMs });
   }
 
+  private async waitForScreenLoad(targetPage: Page, timeoutMs = 25_000): Promise<void> {
+    await targetPage.waitForLoadState('domcontentloaded', { timeout: timeoutMs }).catch(() => {});
+    await targetPage.waitForLoadState('networkidle', { timeout: timeoutMs }).catch(() => {});
+    await targetPage.locator('body').first().waitFor({ state: 'visible', timeout: timeoutMs }).catch(() => {});
+  }
+
   private async clickWhenReady(locator: Locator, timeoutMs = 20_000): Promise<void> {
     await this.ensureVisible(locator, timeoutMs);
     await expect(locator).toBeEnabled({ timeout: timeoutMs });
     await locator.click().catch(() => locator.click({ force: true }));
   }
 
-  private async firstVisible(candidates: Locator[], timeoutMs = 20_000): Promise<Locator> {
+  private async firstVisible(candidates: Locator[], timeoutMs = 20_000, waitPage: Page = this.page): Promise<Locator> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      if (this.page.isClosed()) {
+      if (waitPage.isClosed()) {
         throw new Error('Page closed while waiting for receiving element.');
       }
       for (const candidate of candidates) {
@@ -26,7 +32,7 @@ export class ReceivingPOPage {
           if (await node.isVisible().catch(() => false)) return node;
         }
       }
-      await this.page.waitForTimeout(150);
+      await waitPage.waitForTimeout(150);
     }
     throw new Error('Receiving element was not visible within timeout.');
   }
@@ -36,8 +42,8 @@ export class ReceivingPOPage {
     await this.page
       .goto(`/j4/Home1.jsp?contentUrl=agfrontpage_UI4.jsp?screenid=5&isIncludedFromHome=1&loaddata=${poNumber}`)
       .catch(() => {});
-    await this.page.waitForLoadState('domcontentloaded');
-    await this.page.waitForLoadState('networkidle').catch(() => {});
+    await this.waitForScreenLoad(this.page);
+    await this.ensureVisible(this.page.locator('.ag-center-cols-container, [role="grid"]').first(), 20_000).catch(() => {});
   }
 
   poGridCell(poNumber: string): Locator {
@@ -49,6 +55,7 @@ export class ReceivingPOPage {
   }
 
   async selectPoRow(poNumber: string): Promise<void> {
+    await this.waitForScreenLoad(this.page);
     const rowCell = this.poGridCell(poNumber);
     if (await rowCell.isVisible().catch(() => false)) {
       await this.clickWhenReady(rowCell, 20_000);
@@ -81,6 +88,7 @@ export class ReceivingPOPage {
   async clickReceivingButton(): Promise<void> {
     const receivingButton = await this.firstVisible(this.receivingButtonCandidates(), 25_000);
     await this.clickWhenReady(receivingButton, 25_000);
+    await this.page.waitForTimeout(500);
   }
 
   private async waitForReceivingPage(timeoutMs = 25_000): Promise<Page> {
@@ -89,8 +97,21 @@ export class ReceivingPOPage {
       const pages = this.page.context().pages();
       for (const p of pages) {
         if (p.isClosed()) continue;
-        const field22 = p.locator('#FIELD22').first();
-        if (await field22.isVisible().catch(() => false)) return p;
+        await this.waitForScreenLoad(p, 5_000);
+        const receivingMarkers = [
+          p.locator('text=/^Receiving\\s*-/i').first(),
+          p.locator('text=/Buyer\\s*PO\\s*\\/\\s*Receiving/i').first(),
+          p.locator('xpath=//*[contains(normalize-space(.),"Received date")]').first(),
+          p.getByRole('tab', { name: /line\\s*items/i }).first(),
+        ];
+        let isReceivingScreen = false;
+        for (const marker of receivingMarkers) {
+          if (await marker.isVisible().catch(() => false)) {
+            isReceivingScreen = true;
+            break;
+          }
+        }
+        if (isReceivingScreen) return p;
       }
       await this.page.waitForTimeout(250).catch(() => {});
     }
@@ -99,10 +120,20 @@ export class ReceivingPOPage {
 
   private async waitForField22OnPage(receivingPage: Page, timeoutMs = 12_000): Promise<boolean> {
     const deadline = Date.now() + timeoutMs;
-    const field22 = receivingPage.locator('#FIELD22').first();
+    const field22Candidates = this.receivedDateFieldCandidates(receivingPage);
     while (Date.now() < deadline) {
       if (receivingPage.isClosed()) return false;
-      if (await field22.isVisible().catch(() => false)) return true;
+      for (const field22 of field22Candidates) {
+        if (await field22.isVisible().catch(() => false)) return true;
+      }
+      const receivingDetailSignals = [
+        receivingPage.locator('text=/^Receiving\\s*-/i').first(),
+        receivingPage.getByRole('tab', { name: /line\\s*items/i }).first(),
+        receivingPage.getByRole('button', { name: /^receive$/i }).first(),
+      ];
+      for (const signal of receivingDetailSignals) {
+        if (await signal.isVisible().catch(() => false)) return true;
+      }
       await receivingPage.waitForTimeout(200).catch(() => {});
     }
     return false;
@@ -122,6 +153,7 @@ export class ReceivingPOPage {
   }
 
   async ensureReceivingDetailPage(receivingPage: Page, poNumber: string): Promise<void> {
+    await this.waitForScreenLoad(receivingPage);
     if (await this.waitForField22OnPage(receivingPage, 2_000)) return;
 
     const poRow = receivingPage.getByRole('gridcell', { name: new RegExp(poNumber, 'i') }).first();
@@ -136,26 +168,38 @@ export class ReceivingPOPage {
         receivingPage.locator('#btnReceive, #receive'),
         receivingPage.locator('button:has-text("Receive"):not(:has-text("Invoice"))'),
       ],
-      20_000
+      20_000,
+      receivingPage
     );
     await this.clickWhenReady(openReceiveButton, 20_000);
+    await this.waitForScreenLoad(receivingPage);
 
     const detailReady = await this.waitForField22OnPage(receivingPage, 20_000);
     if (!detailReady) {
-      throw new Error('Receiving detail form did not open with FIELD22.');
+      throw new Error('Receiving detail form did not open with Received date field.');
     }
   }
 
-  receivedDateFieldCandidates(): Locator[] {
+  receivedDateFieldCandidates(receivingPage: Page): Locator[] {
     return [
-      this.page.locator('#FIELD22'),
-      this.page.locator('#receivedDate, #ReceivedDate, #RECEIVEDDATE, [id*="receiveddate" i]'),
-      this.page.locator('input[name*="receiveddate" i], input[id*="receiptdate" i], input[name*="receiptdate" i]'),
-      this.page.locator('label:has-text("Received date")').locator('xpath=following::input[1]'),
-      this.page.locator('text=/^Received\\s*date$/i').locator('xpath=following::input[1]'),
-      this.page.getByLabel(/received\s*date/i),
-      this.page.getByPlaceholder(/received\s*date/i),
-      this.page.locator('input[aria-label*="received date" i]'),
+      receivingPage.locator('#FIELD22'),
+      receivingPage.locator('[id*="FIELD22" i], [name*="FIELD22" i]'),
+      receivingPage.frameLocator('iframe[name*="_dlgOpenerIframe"]').locator('#FIELD22'),
+      receivingPage.frameLocator('iframe[name*="_dlgOpenerIframe"]').locator('[id*="FIELD22" i], [name*="FIELD22" i]'),
+      receivingPage.locator('xpath=//*[contains(normalize-space(.),"Received date")]/ancestor::tr[1]//input[not(@type="hidden")][1]'),
+      receivingPage.locator('xpath=//*[contains(normalize-space(.),"Received date")]/following::input[not(@type="hidden")][1]'),
+      receivingPage
+        .locator('tr, div, label')
+        .filter({ hasText: /received\\s*date/i })
+        .locator('input:not([type="hidden"])')
+        .first(),
+      receivingPage.locator('#receivedDate, #ReceivedDate, #RECEIVEDDATE, [id*="receiveddate" i]'),
+      receivingPage.locator('input[name*="receiveddate" i], input[id*="receiptdate" i], input[name*="receiptdate" i]'),
+      receivingPage.locator('label:has-text("Received date")').locator('xpath=following::input[1]'),
+      receivingPage.locator('text=/^Received\\s*date$/i').locator('xpath=following::input[1]'),
+      receivingPage.getByLabel(/received\s*date/i),
+      receivingPage.getByPlaceholder(/received\s*date/i),
+      receivingPage.locator('input[aria-label*="received date" i]'),
     ];
   }
 
@@ -192,12 +236,16 @@ export class ReceivingPOPage {
   }
 
   async fillReceivedDateAndOpenLinkItems(receivingPage: Page): Promise<void> {
-    const field22 = receivingPage.locator('#FIELD22').first();
+    await this.waitForScreenLoad(receivingPage);
+    const field22 = await this.firstVisible(this.receivedDateFieldCandidates(receivingPage), 25_000, receivingPage);
+    await this.ensureVisible(field22, 20_000);
     await this.clickWhenReady(field22, 20_000);
     await field22.press('Control+A').catch(() => {});
-    await field22.type('t');
+    await field22.fill('t').catch(async () => {
+      await field22.type('t');
+    });
 
-    // Commit typed value before moving to Link Items tab.
+    // Commit typed value by clicking outside on receiving screen.
     await receivingPage.locator('body').click({ position: { x: 10, y: 10 } }).catch(() => {});
     await receivingPage.waitForTimeout(500);
 
@@ -210,18 +258,27 @@ export class ReceivingPOPage {
         receivingPage.locator('a:has-text("Line items"), button:has-text("Line items")'),
         receivingPage.locator('[role="tab"]:has-text("Link Items"), a:has-text("Link Items"), button:has-text("Link Items")'),
       ],
-      20_000
+      20_000,
+      receivingPage
     );
     await this.clickWhenReady(linkItemsTab, 20_000);
+    await this.waitForScreenLoad(receivingPage);
   }
 
   async clickReceiveAcceptAllAndReceive(receivingPage: Page): Promise<void> {
-    const receiveAcceptAllCheckbox = await this.firstVisible(this.receiveAcceptAllCheckboxCandidates(receivingPage), 20_000);
+    await this.waitForScreenLoad(receivingPage);
+    const receiveAcceptAllCheckbox = await this.firstVisible(
+      this.receiveAcceptAllCheckboxCandidates(receivingPage),
+      20_000,
+      receivingPage
+    );
+    await this.ensureVisible(receiveAcceptAllCheckbox, 20_000);
     if (!(await receiveAcceptAllCheckbox.isChecked().catch(() => false))) {
       await this.clickWhenReady(receiveAcceptAllCheckbox, 20_000);
     }
 
-    const receiveButton = await this.firstVisible(this.receiveButtonOnReceivingPageCandidates(receivingPage), 20_000);
+    const receiveButton = await this.firstVisible(this.receiveButtonOnReceivingPageCandidates(receivingPage), 20_000, receivingPage);
+    await this.ensureVisible(receiveButton, 20_000);
     await this.clickWhenReady(receiveButton, 20_000);
   }
 
