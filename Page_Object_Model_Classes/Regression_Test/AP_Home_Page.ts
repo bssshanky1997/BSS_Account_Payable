@@ -36,5 +36,10 @@ export class APHomePage {
 
     const okButton = dialogFrame.getByRole('button', { name: 'OK' });
     await this.clickWhenReady(okButton);
+
+    // Wait for company-switch refresh to settle before next test step.
+    await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+    await this.page.waitForLoadState('networkidle').catch(() => {});
+    await this.ensureVisible(this.page.locator('#compDiv').first(), 20_000).catch(() => {});
   }
 }

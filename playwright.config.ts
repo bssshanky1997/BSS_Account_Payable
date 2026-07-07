@@ -52,6 +52,13 @@ export default defineConfig({
     ['json', {
       outputFile: 'reports/result/json-report/results.json'
     }],
+    ['./reporters/CustomReporter.ts', {
+      outputDir: 'Reports/custom-html-report',
+      assetsDir: 'report-assets',
+      subscriberId: '641',
+      companyId: '931',
+      environment: 'QA'
+    }],
     ['list'],
     ['allure-playwright', {
       resultsDir: 'reports/result/allure-results'

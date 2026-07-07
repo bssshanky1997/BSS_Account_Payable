@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { APHomePage } from '@poms/AP_Home_Page';
+import { APHomePage } from '@poms/Regression_Test/AP_Home_Page';
 
 test('test', async ({ page }) => {
   // Step 1: Initialize AP Home page object and open home page.

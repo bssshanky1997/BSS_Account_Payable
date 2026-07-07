@@ -1,5 +1,5 @@
 import type { FrameLocator, Locator, Page } from '@playwright/test';
-import { waitForLoaderToDisappear } from '../utils/helpers';
+import { waitForLoaderToDisappear } from '../../utils/helpers';
 
 export class POCreationPage {
   constructor(private readonly page: Page) {}
@@ -173,13 +173,50 @@ export class POCreationPage {
 
   // Step 3: Navigate to Purchasing > Special Order Items.
   async openSpecialOrderItemsFromSidebar(): Promise<void> {
-    await this.ensureVisible(this.sidebarToggle, 20_000);
-    await this.sidebarToggle.click();
-    await this.ensureVisible(this.purchasingLink, 20_000);
-    await this.purchasingLink.click();
-    await this.ensureVisible(this.specialOrderItemsIcon, 20_000);
-    await this.specialOrderItemsIcon.click();
+    const isOnSpecialOrderItemsPage = async (): Promise<boolean> =>
+      (await this.page.getByText('Order Guide', { exact: true }).first().isVisible().catch(() => false)) ||
+      (await this.createPoButton.isVisible().catch(() => false));
+    if (await isOnSpecialOrderItemsPage()) return;
+
+    if (await this.sidebarToggle.isVisible().catch(() => false)) {
+      await this.sidebarToggle.click();
+    }
+
+    if (await this.purchasingLink.isVisible().catch(() => false)) {
+      await this.purchasingLink.click();
+    }
+
+    // Wait for purchasing page/tiles to settle before clicking Special Order Items.
+    await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+    await this.page.waitForLoadState('networkidle').catch(() => {});
+
+    if (await this.specialOrderItemsIcon.isVisible().catch(() => false)) {
+      await this.specialOrderItemsIcon.click();
+    } else if (await this.specialOrderItemsSidebarLink.isVisible().catch(() => false)) {
+      await this.ensureVisible(this.specialOrderItemsSidebarLink, 20_000);
+      await this.specialOrderItemsSidebarLink.click();
+    } else if (await this.specialOrderItemsTile.isVisible().catch(() => false)) {
+      await this.ensureVisible(this.specialOrderItemsTile, 20_000);
+      await this.specialOrderItemsTile.click({ force: true }).catch(() => this.specialOrderItemsTile.click());
+      await this.page.waitForTimeout(700);
+      if (!(await isOnSpecialOrderItemsPage())) {
+        await this.specialOrderItemsTile.click({ force: true }).catch(() => {});
+      }
+    }
     await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('networkidle').catch(() => {});
+    const pageReadyMarker = await this.firstVisible(
+      [
+        this.orderGuideHeader,
+        this.selectSupplierButton,
+        this.createPoButton,
+        this.firstResultRow(),
+      ],
+      20_000
+    ).catch(() => null);
+    if (!pageReadyMarker) {
+      console.warn('[Regression PO] Special Order Items page markers were not visible after navigation attempt.');
+    }
   }
 
   // Step 5: Ensure the first grid item is selected before Create PO.
@@ -207,7 +244,20 @@ export class POCreationPage {
   get sidebarToggle(): Locator { return this.page.locator('#sidebarToggle'); }
   get purchasingLink(): Locator { return this.page.getByTitle('Purchasing'); }
   get specialOrderItemsIcon(): Locator { return this.page.getByRole('img', { name: 'Special Order Items' }); }
+  get specialOrderItemsSidebarLink(): Locator { return this.page.getByText('Special Order Items', { exact: true }); }
+  get specialOrderItemsTile(): Locator {
+    return this.page
+      .locator('img[alt*="Special Order Items" i], img[title*="Special Order Items" i], div:has-text("Special Order Items")')
+      .first();
+  }
+  get orderGuideHeader(): Locator { return this.page.getByText('Order Guide', { exact: true }).first(); }
   get selectSupplierButton(): Locator { return this.page.getByRole('button', { name: 'Select Supplier' }); }
+  get supplierSearchIcon(): Locator {
+    return this.page.locator('img[title*="supplier" i], a[title*="supplier" i], img[alt*="supplier" i]').first();
+  }
+  get selectEntrySearchIcon(): Locator {
+    return this.page.locator('img[title*="select entry" i], a[title*="select entry" i], img[alt*="select entry" i]').first();
+  }
   get formWindowIframe(): Locator { return this.page.locator('iframe[name="formWindow"]'); }
   get supplierHiddenValueField(): Locator { return this.page.locator('#FREEFORM_SUPPLIER_COMPANY_VALUE'); }
   // Step 5: Item grid and Create PO controls.
