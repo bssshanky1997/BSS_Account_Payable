@@ -35,8 +35,8 @@ export const APPLICATION_SETTINGS_DOCUMENT_ID: Partial<
   integrationParameter: readDocumentId('DOC_ID_INTEGRATION_PARAMETER', 28),
   positionRightId: readDocumentId('DOC_ID_POSITION_RIGHT', 15630),
 
-  // Set these env vars once actual document IDs are confirmed in your tenant.
-  companyApplicationSetting: readDocumentId('DOC_ID_COMPANY_APPLICATION_SETTING'),
+  // Confirmed from CAS screen 10292 / DocumentLoad (QA): document id 15249.
+  companyApplicationSetting: readDocumentId('DOC_ID_COMPANY_APPLICATION_SETTING', 15249),
   marketplaceApplicationSetting: readDocumentId('DOC_ID_MARKETPLACE_APPLICATION_SETTING'),
   companyApplicationSetting2: readDocumentId('DOC_ID_COMPANY_APPLICATION_SETTING_2'),
 };

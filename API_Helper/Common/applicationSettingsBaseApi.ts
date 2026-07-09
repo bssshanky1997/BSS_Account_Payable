@@ -124,11 +124,14 @@ export class ApplicationSettingsApi {
     });
 
     const responseText = await response.text();
+    const snippet = responseText.replace(/\s+/g, ' ').slice(0, 500);
     if (!response.ok()) {
-      throw new Error(`DocumentSave failed: ${response.status()} ${response.statusText()}\n${responseText}`);
+      throw new Error(
+        `DocumentSave failed: ${response.status()} ${response.statusText()} (doctype=${payload.doctype}, action=${payload.action ?? 'U'})\n${snippet}`
+      );
     }
     if (/Internal Server Error|saveStatus\s*=\s*"false"|Unhandled error/i.test(responseText)) {
-      throw new Error('DocumentSave returned non-success response.');
+      throw new Error(`DocumentSave returned non-success response.\n${snippet}`);
     }
 
     return responseText;
