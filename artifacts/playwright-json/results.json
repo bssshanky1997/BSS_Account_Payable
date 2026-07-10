@@ -10,18 +10,14 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {
-      "actualWorkers": 1
-    },
+    "metadata": {},
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "C:/Users/shpandey.CORP/Playwrights_Framework/Bss_AccountPayable/test-results",
         "repeatEach": 1,
         "retries": 1,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "chromium",
         "name": "chromium",
         "testDir": "C:/Users/shpandey.CORP/Playwrights_Framework/Bss_AccountPayable",
@@ -83,8 +79,8 @@
   },
   "suites": [
     {
-      "title": "Test_Classes\\Regression_Test\\AP_Home_Test.spec.ts",
-      "file": "Test_Classes/Regression_Test/AP_Home_Test.spec.ts",
+      "title": "Test_Classes\\Regression_Test\\Non_PO_Invoice_Tes.spec.ts",
+      "file": "Test_Classes/Regression_Test/Non_PO_Invoice_Tes.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [
@@ -99,27 +95,13 @@
               "expectedStatus": "passed",
               "projectId": "chromium",
               "projectName": "chromium",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 13734,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-07-07T20:07:55.452Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
+              "results": [],
+              "status": "skipped"
             }
           ],
-          "id": "9fc513d5346c18e2dfbc-ae88bb172e6e3552f9cc",
-          "file": "Test_Classes/Regression_Test/AP_Home_Test.spec.ts",
-          "line": 4,
+          "id": "d2a8602e232b55795849-2332cef148ca38ddc4ce",
+          "file": "Test_Classes/Regression_Test/Non_PO_Invoice_Tes.spec.ts",
+          "line": 6,
           "column": 5
         }
       ]
@@ -127,10 +109,10 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-07-07T20:07:46.898Z",
-    "duration": 23138.379,
-    "expected": 1,
-    "skipped": 0,
+    "startTime": "2026-07-10T13:19:43.297Z",
+    "duration": 90.08300000000008,
+    "expected": 0,
+    "skipped": 1,
     "unexpected": 0,
     "flaky": 0
   }
