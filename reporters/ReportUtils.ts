@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 
 /**
@@ -320,4 +321,136 @@ export function deriveNarrativeText(testName: string, steps: NormalizedStep[]): 
     testData,
     expectedResult,
   };
+}
+
+/** CSV row linked into Functional_Test report cards. */
+export type CsvTestCaseRow = {
+  tcId: string;
+  title: string;
+  steps: string[];
+  testData: string;
+  expectedOutcome: string;
+};
+
+/**
+ * Extracts CD number from a file path (e.g. CD-5191_Tax...).
+ */
+export function extractCdNumberFromPath(filePath: string): string {
+  const match = filePath.replace(/\\/g, '/').match(/(CD[-_]?\d{3,})(?=[_\s./-]|$)/i);
+  return match?.[1]?.replace('_', '-').toUpperCase() ?? '';
+}
+
+/**
+ * Loads Functional_Test CSV cases from test-cases/ into a TC-ID map.
+ * Supports: Test Case ID, Title, Steps, Test Data, Expected Outcome
+ */
+export function loadFunctionalCsvCases(projectRoot: string): Map<string, CsvTestCaseRow> {
+  const map = new Map<string, CsvTestCaseRow>();
+  const testCasesDir = path.join(projectRoot, 'test-cases');
+  if (!fsExists(testCasesDir)) return map;
+
+  const csvFiles = listFiles(testCasesDir).filter((name) => /_TestCases\.csv$/i.test(name));
+  for (const fileName of csvFiles) {
+    const fullPath = path.join(testCasesDir, fileName);
+    const raw = readTextFile(fullPath);
+    const rows = parseSimpleCsv(raw);
+    for (const row of rows) {
+      const tcId = normalizeTcId(row['Test Case ID'] || row['TestCase ID'] || row.TC || '');
+      if (!tcId) continue;
+      const stepsRaw = row.Steps || row.STEPS || '';
+      const steps = stepsRaw
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      map.set(tcId, {
+        tcId,
+        title: (row.Title || row.TITLE || '').trim(),
+        steps,
+        testData: (row['Test Data'] || row.TEST_DATA || '').trim() || 'Not Provided',
+        expectedOutcome: (row['Expected Outcome'] || row.EXPECTED_OUTCOME || '').trim() || 'Not Provided',
+      });
+    }
+  }
+  return map;
+}
+
+export function normalizeTcId(value: string): string {
+  const match = value.trim().match(/\b(TC[-_\s]?\d+)\b/i);
+  if (!match?.[1]) return '';
+  return match[1].replace(/\s+/g, '-').toUpperCase().replace(/^TC(\d)/i, 'TC-$1').replace(/^TC-/i, 'TC-');
+}
+
+function fsExists(target: string): boolean {
+  try {
+    return fs.existsSync(target);
+  } catch {
+    return false;
+  }
+}
+
+function listFiles(dir: string): string[] {
+  try {
+    return fs.readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
+function readTextFile(filePath: string): string {
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+/** Minimal CSV parser that supports quoted multiline fields. */
+function parseSimpleCsv(content: string): Array<Record<string, string>> {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < content.length; i += 1) {
+    const ch = content[i];
+    const next = content[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') {
+        field += '"';
+        i += 1;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        field += ch;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inQuotes = true;
+      continue;
+    }
+    if (ch === ',') {
+      row.push(field);
+      field = '';
+      continue;
+    }
+    if (ch === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+      continue;
+    }
+    if (ch === '\r') continue;
+    field += ch;
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  if (rows.length === 0) return [];
+  const headers = rows[0].map((h) => h.trim());
+  return rows.slice(1).map((values) => {
+    const record: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      record[header] = (values[index] ?? '').trim();
+    });
+    return record;
+  });
 }

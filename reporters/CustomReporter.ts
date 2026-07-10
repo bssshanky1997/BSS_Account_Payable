@@ -22,12 +22,16 @@ import {
   detectAttachmentKind,
   extractExpectedAndActual,
   extractTcId,
+  extractCdNumberFromPath,
   formatDuration,
   formatExecutionDate,
   getFirstAttachmentPathByKind,
   getReportRelativePath,
+  loadFunctionalCsvCases,
   normalizeStatus,
+  normalizeTcId,
   valueOrFallback,
+  type CsvTestCaseRow,
 } from './ReportUtils';
 
 interface CustomReporterOptions {
@@ -50,6 +54,8 @@ class CustomReporter implements Reporter {
   private config!: FullConfig;
   private readonly options: CustomReporterOptions;
   private readonly testCases: NormalizedTestCase[] = [];
+  private csvCases = new Map<string, CsvTestCaseRow>();
+  private detectedCdNumber = '';
   private runStartTimeMs = 0;
   private runEndTimeMs = 0;
   private resolvedOutputRootDir = '';
@@ -73,6 +79,8 @@ class CustomReporter implements Reporter {
     this.resolvedAssetsSourceDir = path.resolve(process.cwd(), this.options.assetsDir ?? 'report-assets');
 
     fs.mkdirSync(this.resolvedOutputRootDir, { recursive: true });
+    // Link Functional_Test CSV (Steps / Test Data / Expected Outcome) into report cards.
+    this.csvCases = loadFunctionalCsvCases(process.cwd());
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
@@ -90,7 +98,7 @@ class CustomReporter implements Reporter {
     const steps = this.flattenSteps(result.steps ?? []);
     const executionTimeMs = Number.isFinite(result.duration) ? result.duration : 0;
     const testName = this.resolveDisplayTestName(test);
-    const tcId = extractTcId(testName);
+    const tcId = normalizeTcId(extractTcId(testName)) || extractTcId(testName);
     const narrative = deriveNarrativeText(testName, steps);
     const expectedActual = extractExpectedAndActual(errorMessage);
     const browser = valueOrFallback(this.tryGetProjectName(test), 'chromium');
@@ -98,20 +106,48 @@ class CustomReporter implements Reporter {
       process.env.TEST_ENV || process.env.ENV || this.options.environment,
       'QA'
     );
+    const suiteType = detectSuiteType(test.location.file);
+    const cdFromFile = extractCdNumberFromPath(test.location.file);
+    if (cdFromFile && !this.detectedCdNumber) {
+      this.detectedCdNumber = cdFromFile;
+    }
+
+    // Functional report: prefer CSV Steps / Test Data / Expected Outcome when TC ID matches.
+    const csvRow = this.csvCases.get(tcId);
+    let description = narrative.description;
+    let preconditions = narrative.preconditions;
+    let testData = narrative.testData;
+    let expectedResult =
+      expectedActual.expected !== 'Not Provided' ? expectedActual.expected : narrative.expectedResult;
+    let reportSteps = steps;
+
+    if (suiteType === 'functional' && csvRow) {
+      description = valueOrFallback(csvRow.title, description);
+      preconditions = 'Login completed; company/CAS prerequisite applied as per suite setup.';
+      testData = csvRow.testData;
+      expectedResult = csvRow.expectedOutcome;
+      if (csvRow.steps.length > 0) {
+        reportSteps = csvRow.steps.map((title) => ({
+          title,
+          durationMs: 0,
+          status: 'passed' as const,
+        }));
+      }
+    }
 
     const attachments = this.normalizeAttachments(result);
     const normalizedTestCase: NormalizedTestCase = {
       id: createStableId(`${test.location.file}-${test.location.line}-${testName}`),
       tcId,
       testName,
-      suiteType: detectSuiteType(test.location.file),
+      suiteType,
       status,
       executionTimeMs,
-      description: narrative.description,
-      preconditions: narrative.preconditions,
-      testData: narrative.testData,
-      testSteps: steps,
-      expectedResult: expectedActual.expected !== 'Not Provided' ? expectedActual.expected : narrative.expectedResult,
+      description,
+      preconditions,
+      testData,
+      testSteps: reportSteps,
+      expectedResult,
       actualResult: expectedActual.actual,
       errorMessage: errorMessage || 'Not Provided',
       stackTrace: stackTrace || 'Not Provided',
@@ -135,6 +171,8 @@ class CustomReporter implements Reporter {
     this.resolvedOutputDir = path.join(this.resolvedOutputRootDir, this.resolveSuiteFolderName(), 'custom-html-report');
     fs.mkdirSync(this.resolvedOutputDir, { recursive: true });
     this.copyAssets();
+    // Copy screenshots/videos/traces into report folder so HTML relative links work.
+    this.materializeAttachmentsIntoReport();
 
     const metrics = computeDashboardMetrics(this.testCases);
     const browserSummary = this.getBrowserSummary();
@@ -200,23 +238,44 @@ class CustomReporter implements Reporter {
   }
 
   /**
-   * Normalizes Playwright attachments with safe paths and report-friendly categories.
+   * Normalizes Playwright attachments with absolute source paths.
+   * Final report-relative paths are assigned in materializeAttachmentsIntoReport().
    */
   private normalizeAttachments(result: TestResult): NormalizedAttachment[] {
     const attachments: NormalizedAttachment[] = [];
 
     for (const attachment of result.attachments ?? []) {
-      if (!attachment.path) {
+      let absoluteAttachmentPath = '';
+
+      if (attachment.path) {
+        absoluteAttachmentPath = path.resolve(attachment.path);
+      } else if (attachment.body && attachment.body.length > 0) {
+        const tempDir = path.join(this.resolvedOutputRootDir, '_attachment-staging');
+        fs.mkdirSync(tempDir, { recursive: true });
+        const ext =
+          attachment.contentType?.includes('png')
+            ? '.png'
+            : attachment.contentType?.includes('jpeg')
+              ? '.jpg'
+              : attachment.contentType?.includes('webm')
+                ? '.webm'
+                : attachment.contentType?.includes('zip')
+                  ? '.zip'
+                  : '';
+        const tempName = `${Date.now()}-${(attachment.name || 'attachment').replace(/[^\w.\-]+/g, '_')}${ext}`;
+        absoluteAttachmentPath = path.join(tempDir, tempName);
+        fs.writeFileSync(absoluteAttachmentPath, attachment.body);
+      } else {
         continue;
       }
 
-      const absoluteAttachmentPath = path.resolve(attachment.path);
-      const reportRelativePath = getReportRelativePath(this.resolvedOutputDir, absoluteAttachmentPath);
-      const browserPath = this.toBrowserAssetPath(reportRelativePath, absoluteAttachmentPath);
+      if (!fs.existsSync(absoluteAttachmentPath)) {
+        continue;
+      }
 
       attachments.push({
         name: attachment.name || path.basename(absoluteAttachmentPath),
-        path: browserPath,
+        path: absoluteAttachmentPath,
         kind: detectAttachmentKind(attachment.name || '', absoluteAttachmentPath),
       });
     }
@@ -225,8 +284,49 @@ class CustomReporter implements Reporter {
   }
 
   /**
-   * Converts artifact paths into browser-safe href/src values.
-   * Keeps report-relative paths unchanged, and converts absolute paths to file URLs.
+   * Copies attachment files next to index.html and rewrites href/src to relative paths.
+   */
+  private materializeAttachmentsIntoReport(): void {
+    const destDir = path.join(this.resolvedOutputDir, 'attachments');
+    fs.mkdirSync(destDir, { recursive: true });
+
+    for (const testCase of this.testCases) {
+      const rewritten: NormalizedAttachment[] = [];
+      let index = 0;
+
+      for (const attachment of testCase.attachments) {
+        const sourcePath = attachment.path;
+        if (!sourcePath || !fs.existsSync(sourcePath)) {
+          continue;
+        }
+
+        index += 1;
+        const ext = path.extname(sourcePath) || '';
+        const base = path.basename(sourcePath, ext);
+        const safeTc = (testCase.tcId || 'TC').replace(/[^\w\-]+/g, '_');
+        const safeName = `${safeTc}-${index}-${base}${ext}`.replace(/[^\w.\-]+/g, '_');
+        const destPath = path.join(destDir, safeName);
+
+        try {
+          fs.copyFileSync(sourcePath, destPath);
+          rewritten.push({
+            ...attachment,
+            path: `attachments/${safeName}`,
+          });
+        } catch {
+          // Skip unreadable artifacts; keep report generation stable.
+        }
+      }
+
+      testCase.attachments = rewritten;
+      testCase.failedScreenshotPath = getFirstAttachmentPathByKind(rewritten, 'screenshot');
+      testCase.tracePath = getFirstAttachmentPathByKind(rewritten, 'trace');
+      testCase.videoPath = getFirstAttachmentPathByKind(rewritten, 'video');
+    }
+  }
+
+  /**
+   * @deprecated Paths are materialized in onEnd; kept for compatibility.
    */
   private toBrowserAssetPath(reportRelativePath: string, absoluteAttachmentPath: string): string {
     const isAbsolutePath = path.isAbsolute(reportRelativePath);
@@ -274,7 +374,10 @@ class CustomReporter implements Reporter {
       companyName: valueOrFallback(process.env.COMPANY_NAME || this.options.companyName, 'BirchStreet Systems'),
       subscriberId: valueOrFallback(process.env.SUBSCRIBER_ID || this.options.subscriberId, '641'),
       companyId: valueOrFallback(process.env.COMPANY_ID || process.env.TARGET_COMPANY_ID || this.options.companyId, '931'),
-      cdNumber: valueOrFallback(process.env.CD_NUMBER || this.options.cdNumber, ''),
+      cdNumber: valueOrFallback(
+        process.env.CD_NUMBER || this.options.cdNumber || this.detectedCdNumber,
+        ''
+      ),
       buildNumber: valueOrFallback(process.env.BUILD_NUMBER || this.options.buildNumber, 'Not Provided'),
       runId: valueOrFallback(process.env.RUN_ID || this.options.runId, `RUN-${Date.now()}`),
       executionDate,

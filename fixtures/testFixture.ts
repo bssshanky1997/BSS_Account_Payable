@@ -21,6 +21,11 @@ async function captureScreenshotAfterTest(
     const activePage = page.isClosed() ? page.context().pages().at(-1) : page;
     if (!activePage || activePage.isClosed()) return;
     await activePage.screenshot({ path: screenshotPath, fullPage: true });
+    // Attach so CustomReporter / HTML report can show Screenshots + Attachments.
+    await testInfo.attach('screenshot', {
+      path: screenshotPath,
+      contentType: 'image/png',
+    });
   } catch {
     // Keep tests stable even if screenshot capture fails.
   }

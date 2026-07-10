@@ -126,7 +126,6 @@ function renderFunctionalTemplate(testCase: NormalizedTestCase): string {
           <div><strong>Preconditions</strong><p>${escapeHtml(testCase.preconditions)}</p></div>
           <div><strong>Test Data</strong><p>${escapeHtml(testCase.testData)}</p></div>
           <div><strong>Expected Result</strong><p>${escapeHtml(testCase.expectedResult)}</p></div>
-          <div><strong>Actual Result</strong><p>${escapeHtml(testCase.actualResult)}</p></div>
           <div><strong>Execution</strong><p>${escapeHtml(testCase.browser)} / ${escapeHtml(testCase.environment)} / ${escapeHtml(formatDuration(testCase.executionTimeMs))}</p></div>
         </section>
 
@@ -140,6 +139,15 @@ function renderFunctionalTemplate(testCase: NormalizedTestCase): string {
             }
           </ol>
         </section>
+      </section>
+
+      <section class="functional-evidence">
+        <h4>Screenshots</h4>
+        ${renderScreenshotGallery(testCase.attachments)}
+        <h4>Attachments</h4>
+        <ul class="attachment-list">
+          ${renderAttachmentList(testCase.attachments)}
+        </ul>
       </section>
 
       <details class="test-details">
@@ -165,18 +173,6 @@ function renderFunctionalTemplate(testCase: NormalizedTestCase): string {
           <section>
             <h4>Logs</h4>
             ${renderConsoleLogs(testCase.consoleLogs)}
-          </section>
-
-          <section>
-            <h4>Screenshots</h4>
-            ${renderScreenshotGallery(testCase.attachments)}
-          </section>
-
-          <section>
-            <h4>Attachments</h4>
-            <ul class="attachment-list">
-              ${renderAttachmentList(testCase.attachments)}
-            </ul>
           </section>
         </div>
       </details>

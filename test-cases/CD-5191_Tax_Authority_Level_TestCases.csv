@@ -1,188 +1,103 @@
 ﻿"Test Case ID","Title","Steps","Test Data","Expected Outcome"
-"TC-01","To verify search popup opens successfully for each Tax Level 1-4 ID","1. Login with CAS admin access.
-2. Navigate to Company Application Settings.
-3. Search Tax section.
-4. Set Tax Type dropdown to ""Tax Authority Levels"".
-5. Click search (magnifying glass) for Tax Level 1 ID, Tax Level 2 ID, Tax Level 3 ID, Tax Level 4 ID one by one.
-6. Open Show Tax Level Fields dropdown and select ""Show 4 Fields"".
-7. Save CAS settings.
-8. Reopen Tax section and verify displayed fields.","Company with Tax Type = Tax Authority Levels; Tax Level 1-4 IDs configured; Show Tax Level Fields = Show 4 Fields","Search popup opens successfully for each Tax Level 1-4 ID. All four tax level fields are displayed. Setting ""Show 4 Fields"" is saved and retained on reopen."
-"TC-02","To verify tax Level 1-4 fields are not visible on Smart AP invoice header/invoice tax section","1. Login with CAS admin access.
-2. Open Company Application Settings > Tax.
-3. Set Tax Type to Tax Authority Levels.
-4. Set Show Tax Level Fields to Off (or equivalent hide option).
-5. Save.
-6. Open Smart AP Create Invoice From Scratch for same company.","Tax Type = Tax Authority Levels; Show Tax Level Fields = Off / Do not show","Tax Level 1-4 fields are not visible on Smart AP invoice header/invoice tax section."
-"TC-03","To verify only Tax Level 1 ID field is visible","1. In CAS Tax section, set Show Tax Level Fields to Show 1 Field.
-2. Save.
-3. Open Smart AP invoice create screen.","Show Tax Level Fields = Show 1 Field (if available)","Only Tax Level 1 ID field is visible; Tax Level 2-4 are hidden."
-"TC-04","To verify tax Level 1 and 2 IDs visible","1. Set Show Tax Level Fields to Show 2 Fields.
-2. Save.
-3. Open Smart AP invoice create.","Show Tax Level Fields = Show 2 Fields (if available)","Tax Level 1 and 2 IDs visible; Tax Level 3 and 4 hidden."
-"TC-05","To verify Tax Level 1-3 fields are visible when Show 3 Fields is selected","1. Set Show Tax Level Fields to Show 3 Fields.
-2. Save.
-3. Open Smart AP invoice create.","Show Tax Level Fields = Show 3 Fields (if available)","Tax Level 1-3 visible; Tax Level 4 hidden."
-"TC-06","To verify tax Level 1, 2, 3, and 4 ID fields are all visible and usable","1. Set Show Tax Level Fields to Show 4 Fields.
-2. Save.
-3. Open Smart AP invoice create.","Show Tax Level Fields = Show 4 Fields","Tax Level 1, 2, 3, and 4 ID fields are all visible and usable."
-"TC-07","To verify system either prevents saving blank department in CAS, or blocks/holds invoice with clear validation when tax GL department can...","1. Clear Department for Tax Authority in CAS (if allowed) or set invalid blank.
-2. Save if system allows.
-3. Create and submit Smart AP invoice with tax levels.","Department for Tax Authority blank / cleared","System either prevents saving blank department in CAS, or blocks/holds invoice with clear validation when tax GL department cannot be resolved."
-"TC-08","To verify invoice processes when Use Tax Department for GL Validation is ON with valid dept-GL","1. Enable Use Tax Department for GL Validation in CAS.
-2. Ensure tax GL and Department for Tax Authority form a valid combination.
-3. Create Smart AP invoice with tax levels and valid amounts.
-4. Submit.","Use Tax Department for GL Validation = ON; valid dept-GL","Validation passes; invoice processes (not held for invalid dept-GL)."
-"TC-09","To verify invoice is held or blocked when Use Tax Department for GL Validation is ON with invalid dept-GL","1. Enable Use Tax Department for GL Validation.
-2. Configure or force invalid department and tax GL combination.
-3. Create Smart AP invoice with tax levels.
-4. Submit.","Use Tax Department for GL Validation = ON; invalid dept-GL","Validation fails; invoice is held or blocked for further submission; user sees validation/hold reason related to department & GL combination."
-"TC-10","To verify invalid dept-GL is not held by Use Tax Department for GL Validation when flag is OFF","1. Disable Use Tax Department for GL Validation.
-2. Use same invalid dept-GL combination as prior case.
-3. Create and submit Smart AP invoice with tax.","Use Tax Department for GL Validation = OFF; invalid dept-GL","Dept-GL combination validation for tax department is not enforced by this flag; invoice is not held solely for that validation (other validations may still apply)."
-"TC-11","To verify tax amount population works as designed with Param 932 ON","1. Navigate to Integration Parameter Screen.
-2. Search parameter 932.
-3. Turn ON and save.
-4. Create Smart AP invoice, enter subtotal lines, select tax levels with configured %.","Param 932 = ON","Tax amount population works as designed with Param 932 ON."
-"TC-12","To verify tax amount does not populate correctly when Param 932 is OFF","1. Set Param 932 OFF and save.
-2. Create Smart AP invoice with lines and tax levels.
-3. Observe tax amount population.","Param 932 = OFF","Tax amount does not populate as when Param 932 is ON (or population path fails per product behavior); difference vs ON is observable."
-"TC-13","To verify selected Tax Level 1 ID is saved and available for Smart AP","1. In CAS, open Tax Level 1 ID search.
-2. Search and select a valid tax level ID.
-3. Save.","Tax Level 1 ID lookup - valid value","Selected Tax Level 1 ID is saved and available for Smart AP."
-"TC-14","To verify each level ID saves successfully","1. Repeat search/select for Tax Level 2, 3, and 4 IDs with valid values.
-2. Save CAS.","Tax Level 2-4 ID lookup - valid values","Each level ID saves successfully; all four available when Show 4 Fields is set."
-"TC-15","To verify no invalid ID is applied","1. Open Tax Level 1 ID search popup.
-2. Enter non-existing search text.
-3. Cancel without selecting.","Tax Level ID search - no match / cancel","No invalid ID is applied; prior value unchanged; popup closes cleanly."
-"TC-16","To verify Tax Level lookup opens and selected ID populates on Smart AP invoice","1. Open Smart AP invoice create.
-2. Click lookup for Tax Level 1 ID.
-3. Select valid ID.
-4. Repeat for levels shown (2-4 as configured).","Valid tax level IDs via lookup on invoice","Lookup opens; selected values populate fields; fields remain editable where applicable."
-"TC-17","To verify Tax Level ID can be updated from A to B and persists after save","1. Select Tax Level 1 ID = A.
-2. Change Tax Level 1 ID to B via lookup.
-3. Save invoice draft if available.","Update tax level after initial selection","Field updates to B; UI remains usable; no stale A value after save/reopen."
-"TC-18","To verify header Tax Amount is disabled/read-only","1. Open invoice with taxable lines and tax levels selected.
-2. Attempt to type/edit Header Tax Amount.","Header Tax Amount field","Header Tax Amount is disabled/read-only; cannot be manually overwritten."
-"TC-19","To verify user can set Tax Authority Level flags at both invoice and header levels as per CD","1. Set tax authority level flags at invoice level.
-2. Set/verify tax fields at header level as supported.
-3. Save.","Invoice-level vs header-level tax flags","User can set Tax Authority Level flags at both invoice and header levels as per CD; values display correctly in both contexts."
-"TC-20","To verify Tax Authority amount populates as 100.00 for subtotal 1000 with 10% tax","1. Create Smart AP invoice From Scratch.
-2. Add line(s) totaling subtotal 1000.
-3. Select valid Tax Level ID(s) with 10% configured.
-4. Observe Tax Authority / tax amount population.","Subtotal = 1000; Tax % for selected level = 10%; Param 932 ON; Show 4 Fields","Tax Authority amount populates as 100.00 (1000 × 10%)."
-"TC-21","To verify tax amount for subtotal 250.50 with 7.5% is calculated and rounded per business rule","1. Enter lines totaling 250.50.
-2. Select tax level with 7.5%.
-3. Observe calculated tax.","Subtotal = 250.50; Tax % = 7.5%","Tax = 18.7875 rounded per business rounding rule; displayed amount matches configured precision."
-"TC-22","To verify Header Tax Amount equals 30.00 as sum of line taxes 10, 15 and 5","1. Create invoice with three taxable lines producing individual taxes 10, 15, 5.
-2. Select tax levels so each line tax is assigned.
-3. Observe Header Tax Amount.","Multiple lines: Line1 tax 10, Line2 tax 15, Line3 tax 5","Header Tax Amount = 30.00 (exact sum of individual taxes) and remains disabled."
-"TC-23","To verify line tax 25.00 equals Header Tax Amount for single line subtotal 500 at 5%","1. One line subtotal 500, tax % 5%.
-2. Select tax level.
-3. Check header tax.","Single line only","Line tax = 25; Header Tax = 25; header disabled."
-"TC-24","To verify tax amount is 0.00 when selected tax level has 0% rate","1. Select tax level with 0% tax.
+"TC-01","To verify Tax Authority Level options appear on Smart AP invoice details when Tax Type is Tax Authority Levels","1. Login with AP create rights.
+2. In CAS, set Tax Type = Tax Authority Levels and Show Tax Level Fields = Show 4 Fields; Save.
+3. Open Smart AP > Create New Invoice > Create From Scratch for the same company.
+4. Observe invoice header / tax section where invoice details are managed.","Company 931; Tax Type = Tax Authority Levels; Show Tax Level Fields = Show 4 Fields","Tax Authority Level (Tax Level ID) options are displayed on the Smart AP invoice create/edit screen where invoice details are managed."
+"TC-02","To verify Tax Level field count on Smart AP follows CAS Show Tax Level Fields = Off","1. In CAS Tax section, set Show Tax Level Fields = Off; Save.
+2. Open Smart AP Create From Scratch.
+3. Check Tax Level 1-4 ID fields.","SHOW_TAX_LEVEL_FIELDS = Off","Tax Level 1-4 ID fields are not visible on Smart AP."
+"TC-03","To verify only Tax Level 1 is visible when Show Tax Level Fields = Show 1 Field","1. Set Show Tax Level Fields = Show 1 Field; Save.
+2. Open Smart AP Create From Scratch.
+3. Check Tax Level fields.","SHOW_TAX_LEVEL_FIELDS = Show 1 Field","Only Tax Level 1 ID is visible; Tax Level 2-4 are hidden."
+"TC-04","To verify Tax Level 1-2 are visible when Show Tax Level Fields = Show 2 Fields","1. Set Show Tax Level Fields = Show 2 Fields; Save.
+2. Open Smart AP Create From Scratch.","SHOW_TAX_LEVEL_FIELDS = Show 2 Fields","Tax Level 1 and 2 IDs are visible; Tax Level 3 and 4 are hidden."
+"TC-05","To verify Tax Level 1-3 are visible when Show Tax Level Fields = Show 3 Fields","1. Set Show Tax Level Fields = Show 3 Fields; Save.
+2. Open Smart AP Create From Scratch.","SHOW_TAX_LEVEL_FIELDS = Show 3 Fields","Tax Level 1-3 IDs are visible; Tax Level 4 is hidden."
+"TC-06","To verify Tax Level 1-4 are visible and editable when Show Tax Level Fields = Show 4 Fields","1. Set Show Tax Level Fields = Show 4 Fields; Save.
+2. Open Smart AP Create From Scratch.
+3. Confirm each Tax Level ID field is visible and can be updated via lookup/input.","SHOW_TAX_LEVEL_FIELDS = Show 4 Fields","All four Tax Level ID fields are clearly visible and editable/updatable on Smart AP."
+"TC-07","To verify user can set Tax Authority Level flags at invoice header level on Smart AP","1. Ensure Show 4 Fields is saved in CAS.
+2. Open Smart AP Create From Scratch.
+3. Select valid Tax Level 1 ID (and Level 2 if shown) on the invoice header/tax section.
+4. Observe selected values remain on the form.","Valid Tax Level IDs configured in CAS","Selected Tax Authority Level values are set and retained at invoice header level before save."
+"TC-08","To verify user can set Tax Authority Level flags at invoice/line level on Smart AP","1. Open Smart AP Create From Scratch with Show 4 Fields.
+2. Add invoice line(s).
+3. Set Tax Authority Level on invoice/line tax fields where available.
+4. Confirm values are accepted on the form.","Show 4 Fields; valid Tax Level ID","Tax Authority Level can be set at invoice/line level and values remain on the form."
+"TC-09","To verify tax amount populates from tax percentage x subtotal","1. Ensure Param 932 is ON (if required for tax population).
+2. Open Smart AP Create From Scratch.
+3. Select Tax Level with tax percentage = 10%.
+4. Enter line/subtotal amount = 1000.00.
+5. Observe calculated tax.","Tax % = 10%; Subtotal = 1000.00; Param 932 = ON","Tax amount = 100.00 (10% of 1000)."
+"TC-10","To verify tax amount for fractional subtotal and percentage","1. Select Tax Level with tax percentage = 7.5%.
+2. Enter subtotal = 250.50.
+3. Observe calculated tax.","Tax % = 7.5%; Subtotal = 250.50","Tax amount = 18.7875 rounded per product rounding rule (expected display matches system rounding for 250.50 x 7.5%)."
+"TC-11","To verify Header Tax Amount is disabled and not manually editable","1. Open Smart AP Create From Scratch with tax levels visible.
+2. Locate Header Tax Amount field.
+3. Attempt to type/edit the value.","Show 4 Fields; any valid tax setup","Header Tax Amount is disabled/read-only; user cannot manually overwrite the value."
+"TC-12","To verify Header Tax Amount equals sum of individual assigned taxes","1. Create invoice with multiple lines/tax assignments producing individual taxes 10.00, 15.00, and 5.00.
+2. Observe Header Tax Amount.","Individual taxes = 10 + 15 + 5","Header Tax Amount = 30.00 (sum of individual taxes) and remains disabled."
+"TC-13","To verify Header Tax Amount equals single line tax when only one tax is assigned","1. Select Tax Level with 5%.
+2. Enter single line subtotal = 500.00.
+3. Observe line tax and Header Tax Amount.","Tax % = 5%; Subtotal = 500.00","Line tax = 25.00 and Header Tax Amount = 25.00."
+"TC-14","To verify tax recalculates when subtotal changes","1. Select Tax Level 10%; enter subtotal 1000 → tax 100.
+2. Change subtotal to 2000.
+3. Observe tax and Header Tax Amount.","Tax % = 10%; Subtotal change 1000 → 2000","Tax and Header Tax Amount update to 200.00."
+"TC-15","To verify tax recalculates when Tax Level percentage changes via different Tax Level ID","1. Select Tax Level A at 10% with subtotal 1000 (tax 100).
+2. Change to Tax Level B at 5%.
+3. Observe tax.","Subtotal = 1000; Level A = 10%; Level B = 5%","Tax updates from 100.00 to 50.00."
+"TC-16","To verify tax is 0.00 when Tax Level rate is 0%","1. Select Tax Level with 0% rate.
 2. Enter subtotal 1000.
-3. Observe tax.","Zero tax % configured for level","Tax amount = 0.00; header tax = 0.00; no erroneous non-zero tax."
-"TC-25","To verify tax recalculates to 200.00 when subtotal changes from 1000 to 2000 at 10%","1. Subtotal 1000, tax 10% → tax 100.
-2. Update line amount so subtotal = 2000.
-3. Recalculate/save.","Change subtotal after tax calculated","Tax Authority amount recalculates to 200.00; header tax updates to match sum of individual taxes."
-"TC-26","To verify tax updates to 50.00 when tax level percentage changes from 10% to 5%","1. Select level with 10% on subtotal 1000 (tax 100).
-2. Change to level with 5%.
-3. Observe tax.","Change tax level to different %","Tax updates to 50.00; header tax matches."
-"TC-27","To verify tax Authority GLs post/associate with department D1","1. CAS Department for Tax Authority = D1.
-2. Create invoice with valid tax levels and amounts.
-3. Submit successfully.","Department for Tax Authority = D1; valid tax submit","Tax Authority GLs post/associate with department D1."
-"TC-28","To verify invoice-level tax flag values persist exactly as saved","1. Set invoice-level Tax Level 1-4 values.
-2. Save invoice.
-3. Close and reopen same invoice.","Save then reopen - invoice-level flags","Invoice-level tax flag values persist exactly as saved."
-"TC-29","To verify header tax levels and system-calculated header tax amount persist","1. Set header tax level fields and generate tax amounts.
-2. Save.
-3. Reopen.","Save then reopen - header-level tax","Header tax levels and system-calculated header tax amount persist; header tax still disabled."
-"TC-30","To verify Smart AP invoice submits successfully with tax levels, Param 932 ON and valid GL validation","1. Param 932 ON; Show 4 Fields; valid Department for Tax Authority; Use Tax Dept for GL Validation ON with valid combo.
-2. Create Smart AP invoice From Scratch.
-3. Enter vendor/required header data.
-4. Add taxable lines.
-5. Select Tax Level 1-4 as required.
-6. Verify tax amounts and header tax sum.
-7. Submit.","Full happy path submit","Invoice submits successfully; tax amounts correct; no hold for tax/dept-GL; data persisted."
-"TC-31","To verify invalid or unsupported Tax Level ID shows validation error and blocks save/submit","1. Open Smart AP invoice.
-2. Attempt to enter or force unsupported Tax Level ID (if free-text allowed) or select inactive ID.
-3. Save or submit.","Invalid / unsupported Tax Level ID","Validation error shown; save/submit blocked until corrected."
-"TC-32","To verify blank mandatory Tax Level field shows validation and blocks submission","1. Leave required Tax Level field blank.
-2. Enter other valid invoice data.
-3. Submit.","Mandatory tax level blank (when required by setup)","Inline or form validation message shown; submission blocked."
-"TC-33","To verify clearing Tax Level after calculation blocks submission","1. Select valid tax level and calculate tax.
-2. Clear/remove tax level.
-3. Submit.","Clear tax level after tax calculated","Validation catches missing tax context; submission blocked."
-"TC-34","To verify incomplete tax percentage setup prevents successful submission","1. Select tax level with missing/incomplete tax percentage configuration.
-2. Enter subtotal.
-3. Submit.","Incomplete tax % setup for selected level","System prevents successful submission; actionable tax setup error shown."
-"TC-35","To verify inconsistent line and header tax data blocks submission","1. Create multi-line invoice where line tax data is incomplete or inconsistent.
-2. Submit.","Line tax incomplete / inconsistent with header","Submission blocked; user prompted to correct line tax data."
-"TC-36","To verify invoice held or blocked","1. Enable flag; use invalid dept-GL.
-2. Submit invoice with tax.","Use Tax Dept GL Validation ON + invalid combo","Invoice held or blocked; invalid combination indicated."
-"TC-37","To verify Tax Level search with special characters does not crash or save invalid ID","1. Open Tax Level lookup.
-2. Search with `!@#$%^&*()`.
-3. Observe results.","Special characters in Tax Level search","No crash; no invalid selection applied; empty or safe no-match behavior."
-"TC-38","To verify Tax Level search with maximum length string does not crash or corrupt data","1. Paste maximum-length string into tax level search.
-2. Execute search.","Extremely long search string in Tax Level lookup","System handles without crash; no corrupt ID saved."
-"TC-39","To verify zero subtotal with tax level selected does not create false positive tax amount","1. Select tax levels with no line amounts (subtotal 0).
-2. Observe tax and attempt submit if other mandatory fields filled.","Blank subtotal / zero lines with tax level selected","Tax = 0 or validation prevents invalid tax application; no false positive tax amount."
-"TC-40","To verify tax rounded per rules","1. Enter minimal positive subtotal and minimal %.
-2. Calculate tax.","Subtotal = 0.01; Tax % = 0.01%","Tax rounded per rules; no floating-point corruption; header equals line tax."
-"TC-41","To verify tax equals subtotal (within precision)","1. Enter large subtotal and 100% tax level.
-2. Calculate.","Subtotal = max practical amount (e.g. 9999999.99); Tax % = 100%","Tax equals subtotal (within precision); header matches; no overflow/UI break."
-"TC-42","To verify rounding applied consistently","1. Lines producing taxes 10.335, 10.335, 10.33 (example).
-2. Sum to header.","Fractional cents across multiple lines","Rounding applied consistently; header tax equals sum of rounded line taxes per business rule; totals consistent after save."
-"TC-43","To verify tax = 200","1. Subtotal 200; tax level 100%.
-2. Verify amounts.","Tax % = 100%","Tax = 200; header = 200."
-"TC-44","To verify tax uses L1 configuration","1. Populate only L1; leave L2-L4 blank if optional.
-2. Calculate and submit.","Only Tax Level 1 populated (Show 4 Fields)","Tax uses L1 configuration; optional blank levels do not block if not mandatory."
-"TC-45","To verify calculations match configured multi-level rules","1. Populate L1-L4 with configured percentages.
-2. Calculate tax vs subtotal per product stacking rules.
-3. Verify header sum.","All four levels populated with stacked/combined % per config","Calculations match configured multi-level rules; header = sum of assigned individual taxes."
-"TC-46","To verify new invoices use updated Department for Tax Authority after CAS change from D1 to D2","1. Process one invoice with D1.
-2. Change CAS department to D2.
-3. Process new invoice.","Show 4 Fields ON + Department for Tax Authority changed from D1 to D2 mid-test","New invoice tax GLs associate with D2; prior invoice retains historical association as designed."
-"TC-47","To verify tax population is restored after Param 932 is turned OFF then ON again","1. Toggle Param 932 OFF, verify tax population fails/differs.
-2. Turn ON again.
-3. Create new invoice.","Param 932 ON then OFF then ON","Tax population restored when Param 932 is ON again."
-"TC-48","To verify all tax level IDs and calculated amounts persist","1. Enter tax levels and lines.
-2. Save without submit.
-3. Reopen.","Save draft with tax levels","All tax level IDs and calculated amounts persist."
-"TC-49","To verify updated Tax Level 2 ID and recalculated tax persist","1. Open saved invoice.
-2. Change Tax Level 2 ID.
+3. Observe tax and Header Tax Amount.","Tax % = 0%; Subtotal = 1000","Tax amount and Header Tax Amount = 0.00."
+"TC-17","To verify validation blocks or warns before submit when mandatory Tax Level is blank","1. Open Smart AP Create From Scratch with Show fields requiring Tax Level.
+2. Leave mandatory Tax Level blank.
+3. Enter other required invoice fields.
+4. Click Submit.","Mandatory Tax Level blank; other required fields filled","Submit is blocked or clear validation message is shown; invoice is not submitted with missing Tax Authority Level."
+"TC-18","To verify validation blocks submit for invalid Tax Level ID","1. Enter or force an invalid Tax Level ID.
+2. Enter subtotal and required fields.
+3. Click Save/Submit.","Invalid Tax Level ID","System shows validation error and does not save/submit with invalid Tax Authority Level."
+"TC-19","To verify validation after clearing Tax Level post calculation","1. Select valid Tax Level and amount so tax calculates.
+2. Clear Tax Level ID.
+3. Click Submit.","Tax Level cleared after calculation","Submit is blocked or validation requires Tax Level; inaccurate tax application is prevented."
+"TC-20","To verify Tax Authority GLs use Department for Tax Authority from CAS","1. In CAS, set Department for Tax Authority = D1; Save.
+2. Create Smart AP invoice with Tax Authority Levels and tax GLs.
+3. Submit/process and review accounting/GL distribution for tax lines.","Department for Tax Authority = D1; valid tax GLs","Tax Authority GL postings are associated with department D1 from CAS."
+"TC-21","To verify changing Department for Tax Authority applies to new invoices","1. Change CAS Department for Tax Authority from D1 to D2; Save.
+2. Create a new Smart AP invoice with tax levels.
+3. Review tax GL department association.","Department changed D1 → D2","New invoice tax Authority GLs associate with D2."
+"TC-22","To verify Use Tax Department for GL Validation ON allows processing for valid dept-GL","1. Set Use Tax Department for GL Validation = ON.
+2. Ensure Department for Tax Authority and tax GL form a valid combination.
+3. Create and submit Smart AP invoice with tax levels.","Flag = ON; valid dept-GL","Validation passes; invoice processes (not held for dept-GL mismatch)."
+"TC-23","To verify Use Tax Department for GL Validation ON holds or blocks invalid dept-GL","1. Set Use Tax Department for GL Validation = ON.
+2. Configure invalid department and tax GL combination.
+3. Create and submit Smart AP invoice with tax levels.","Flag = ON; invalid dept-GL","Invoice is held or blocked for further submission; user sees hold/validation related to department & GL combination."
+"TC-24","To verify Use Tax Department for GL Validation OFF does not hold solely for invalid dept-GL","1. Set Use Tax Department for GL Validation = OFF.
+2. Use same invalid dept-GL as TC-23.
+3. Create and submit Smart AP invoice with tax.","Flag = OFF; invalid dept-GL","Invoice is not held solely due to Use Tax Department for GL Validation (other validations may still apply)."
+"TC-25","To verify Tax Level ID can be updated from value A to B and persists after save","1. Create invoice; select Tax Level A; Save.
+2. Reopen invoice; change Tax Level to B; Save.
+3. Reopen and verify Tax Level and recalculated tax.","Tax Level A then B; valid amounts","Tax Level B and recalculated tax persist after save/reopen."
+"TC-26","To verify draft/save persists Tax Level IDs and calculated Header Tax Amount","1. Set Tax Levels and line amounts so tax calculates.
+2. Click Save (draft/save without final submit if available).
+3. Reopen the invoice.","Show 4 Fields; Tax % and amounts known","Saved Tax Level IDs and Header Tax Amount (sum of individual taxes) persist on reopen."
+"TC-27","To verify cancel discards unsaved Tax Level changes","1. Open existing or new invoice; note current Tax Level.
+2. Change Tax Level / amounts without saving.
+3. Click Cancel.
+4. Reopen or return to prior state.","Unsaved Tax Level change","Unsaved Tax Authority Level changes are discarded; prior saved values remain."
+"TC-28","To verify Tax Level lookup populates selected ID and is easy to update","1. On Smart AP create screen, open Tax Level 1 search/lookup.
+2. Search and select a valid ID.
+3. Confirm field shows selected ID and can be changed again via lookup.","Valid Tax Level master data","Selected Tax Level ID populates the field; user can update it again via lookup."
+"TC-29","To verify end-to-end submit with Tax Authority Levels, correct tax calc, and valid GL validation","1. CAS: Tax Type = Tax Authority Levels; Show 4 Fields; Department for Tax Authority = D1; Use Tax Department for GL Validation = ON with valid dept-GL.
+2. Param 932 ON if required.
+3. Create Smart AP invoice; set Tax Levels; enter subtotal 1000 with 10% tax.
+4. Confirm Header Tax = 100 and disabled.
+5. Submit.","Full happy-path setup; Subtotal 1000; Tax 10%","Invoice submits successfully; tax = 100.00; Header Tax disabled and = 100.00; no invalid dept-GL hold."
+"TC-30","To verify company switch applies active company CAS Show Tax Level Fields on Smart AP","1. Company A: Show 4 Fields.
+2. Company B: Show Tax Level Fields = Off (or different count).
+3. Switch company in UI and open Smart AP Create From Scratch for each.","Two companies with different SHOW_TAX_LEVEL_FIELDS","Smart AP Tax Level visibility matches the active company's CAS Show Tax Level Fields setting."
+"TC-31","To verify editing existing tax-authority invoice recalculates tax on amount change","1. Open an existing Smart AP invoice that already has Tax Authority Levels and tax.
+2. Change line/subtotal amount.
 3. Save.
-4. Reopen.","Update tax levels on existing invoice","Updated Tax Level 2 ID and recalculated tax persist."
-"TC-50","To verify unsaved tax changes discarded","1. Open invoice.
-2. Change tax levels.
-3. Cancel / navigate away without save.
-4. Reopen.","Cancel after editing tax fields","Unsaved tax changes discarded; prior saved values remain."
-"TC-51","To verify invoice appears in list","1. Create and save/submit invoice with tax authority levels.
-2. Navigate to Smart AP list.
-3. Search by invoice number.","Smart AP list after tax invoice created","Invoice appears in list; open shows persisted tax levels and amounts."
-"TC-52","To verify tax fields editable","1. Login as authorized AP user.
-2. Create invoice and edit tax level fields.","User with Smart AP create/edit rights","Tax fields editable; save/submit allowed per rights."
-"TC-53","To verify access denied or create action unavailable","1. Login as user without Smart AP create.
-2. Attempt to open Create From Scratch.","User without Smart AP create rights","Access denied or create action unavailable."
-"TC-54","To verify tax fields read-only","1. Open existing tax invoice in view-only mode.
-2. Attempt to change tax levels.","User with view-only (if exists)","Tax fields read-only; changes not saved."
-"TC-55","To verify non-admin user cannot access or save CAS Tax Authority Level settings","1. Login as non-admin.
-2. Attempt Company Application Settings Tax changes.","User without CAS admin rights","CAS Tax Authority setup not accessible or save denied."
-"TC-56","To verify Smart AP create and submit still works when Tax Level fields are hidden","1. Show Tax Level Fields Off.
-2. Create and submit standard Smart AP invoice.","Smart AP Create From Scratch without using tax levels (fields hidden)","Existing non-tax-authority flow works end-to-end."
-"TC-57","To verify Smart AP create with Tax Authority Levels works end-to-end","1. Show 4 Fields + Param 932 ON.
-2. Full create with tax and submit.","Smart AP Create From Scratch with tax levels (fields shown)","New tax authority path works; no regression on vendor/header/line entry."
-"TC-58","To verify editing a pre-existing non-tax-authority invoice still saves successfully","1. Open older invoice created before feature.
-2. Edit non-tax fields and save.","Smart AP edit existing non-tax invoice","Edit/save works; no forced tax errors if tax levels not applicable."
-"TC-59","To verify tax recalculates correctly when editing an existing tax-authority invoice","1. Open tax-authority invoice.
-2. Update line amount; verify tax recalc.
-3. Save/submit.","Smart AP edit existing tax invoice","Tax recalculates; header sum correct."
-"TC-60","To verify Header Tax Amount remains disabled on edit of tax-authority invoice","1. Open tax invoice in edit.
-2. Try edit header tax.","Header tax still disabled on edit","Remains disabled; equals sum of individual taxes."
-"TC-61","To verify Non-PO Smart AP invoice with Tax Authority Levels processes without Override Tax GL","1. Create Non-PO Smart AP invoice with tax levels (Override Tax GL excluded from scope).
-2. Submit with valid tax setup.","PO vs Non-PO Smart AP path (as applicable)","Invoice processes with Tax Authority Levels without requiring Override Tax GL."
-"TC-62","To verify Tax Level field visibility follows the active company CAS after company switch","1. Switch to company with Tax Authority setup (e.g. 931).
-2. Open Smart AP.
-3. Verify tax fields per that company’s CAS.","AP Home / company switch","Tax field visibility and behavior follow active company CAS, not previous company."
-"TC-63","To verify Tax Level fields are hidden for a company without Tax Authority Level configuration","1. Switch company where Show Tax Level Fields Off / not configured.
-2. Open Smart AP create.","Switch to company without Tax Authority Levels","Tax level fields hidden or unavailable; create still works."
+4. Observe tax and Header Tax Amount.","Existing tax invoice; amount change","Tax and disabled Header Tax Amount recalculate to match new subtotal x tax % and sum of individual taxes."
+"TC-32","To verify Header Tax Amount remains disabled when editing an existing invoice","1. Open existing tax-authority Smart AP invoice.
+2. Attempt to edit Header Tax Amount.","Existing tax invoice","Header Tax Amount remains disabled/read-only on edit."
