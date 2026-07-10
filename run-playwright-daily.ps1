@@ -73,26 +73,36 @@ function Send-ExecutionReportEmail {
         return
     }
 
-    $emailSummaryPath = Join-Path $RunDirectory "email-summary.html"
-    if (-not (Test-Path $emailSummaryPath)) {
-        Write-Log "Email summary HTML not found at $emailSummaryPath. Skipping report email."
+    # Same enterprise report used for Regression_Test is placed under General_Test for scheduled runs.
+    $reportDir = Join-Path $ProjectDir "Reports\General_Test\custom-html-report"
+    $reportHtmlPath = Join-Path $reportDir "index.html"
+    $reportCssPath = Join-Path $reportDir "assets\css\custom-reporter.css"
+
+    if (-not (Test-Path $reportHtmlPath)) {
+        Write-Log "Enterprise report not found at $reportHtmlPath. Skipping report email."
         return
     }
 
+    # Inline CSS and strip the interactive script reference so the report renders correctly as an email body.
+    $htmlBody = Get-Content -Path $reportHtmlPath -Raw
+    if (Test-Path $reportCssPath) {
+        $cssContent = Get-Content -Path $reportCssPath -Raw
+        $htmlBody = $htmlBody -replace '<link rel="stylesheet" href="\./assets/css/custom-reporter\.css" />', "<style>`n$cssContent`n</style>"
+    }
+    $htmlBody = $htmlBody -replace '<script src="\./assets/js/custom-reporter\.js"></script>', ''
+
+    $reportZipPath = Join-Path $RunDirectory "General_Test-report_$(Split-Path $RunDirectory -Leaf).zip"
+    Compress-Archive -Path (Join-Path $reportDir '*') -DestinationPath $reportZipPath -Force
+
     $excelAttachment = Get-ChildItem -Path $RunDirectory -Filter "playwright-result_*.xlsx" -ErrorAction SilentlyContinue |
         Select-Object -First 1
-    $attachments = @(
-        Join-Path $RunDirectory "detailed-execution-report.html"
-        Join-Path $RunDirectory "execution-summary.json"
-        Join-Path $RunDirectory "failed-tests.json"
-    )
+    $attachments = @($reportZipPath)
     if ($excelAttachment) {
         $attachments += $excelAttachment.FullName
     }
 
     $runStatus = if ($RunExitCode -eq 0) { "PASSED" } else { "FAILED" }
     $subject = "Playwright Scheduled Execution [$runStatus] - $(Split-Path $RunDirectory -Leaf)"
-    $htmlBody = Get-Content -Path $emailSummaryPath -Raw
 
     try {
         $outlook = New-Object -ComObject Outlook.Application
@@ -172,25 +182,6 @@ try {
     }
     else {
         Write-Log "Warning: Excel report generation failed."
-    }
-
-    Write-Log "Generating detailed scheduled summary artifacts..."
-    $scheduledSummaryExitCode = Invoke-NativeCommand {
-        node ".\scripts\generate-scheduled-summary.js" `
-            --projectRoot "$ProjectDir" `
-            --jsonPath "$JsonReportPath" `
-            --outputDir "$runReportDir" `
-            --runStart "$($runStart.ToString('o'))" `
-            --runEnd "$($runEnd.ToString('o'))" `
-            --taskName "$ScheduledTaskLabel" `
-            --testExitCode "$exitCode" *>> $logFile
-    }
-
-    if ($scheduledSummaryExitCode -eq 0) {
-        Write-Log "Detailed summary artifacts generated in: $runReportDir"
-    }
-    else {
-        Write-Log "Warning: Detailed summary generation failed."
     }
 
     if (Test-Path $ReportDir) {

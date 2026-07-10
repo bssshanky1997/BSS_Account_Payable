@@ -13,4 +13,4 @@ playwright/.auth/
 java/target/
 .DS_Store
 Thumbs.db
-artifacts/allure-results/
+artifacts/

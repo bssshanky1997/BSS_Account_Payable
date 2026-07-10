@@ -116,12 +116,6 @@ Generate Excel summary from JSON report:
 npm run report:excel
 ```
 
-Generate scheduler-style summary artifacts (HTML/JSON/email):
-
-```bash
-npm run report:scheduled
-```
-
 ## Nightly Scheduler
 
 - Setup 10 PM scheduled execution on Windows:
@@ -144,5 +138,6 @@ npm run setup:scheduler
   - `reports/report/html-report`
   - `reports/result/json-report/results.json`
   - `reports/result/allure-results`
-  - `Reports/<timestamp>/` (nightly bundle with execution summary + email summary + failed-tests list)
+  - `Reports/General_Test/custom-html-report/index.html` (enterprise report; same one emailed after scheduled runs)
+  - `Reports/<timestamp>/` (nightly bundle with zipped enterprise report + Excel result file)
 - Legacy Python and Java assets may still exist in the repository for reference.

@@ -6,7 +6,7 @@ import { ReceivingPOPage } from '../../Page_Object_Model_Classes/Regression_Test
 test.describe('PO Creation', () => {
   test.describe.configure({ retries: 0 });
 
-  test('Skeleton smoke test', async ({ page }) => {
+  test('PO_Creation_Test.spec', async ({ page }) => {
     test.setTimeout(240_000);
     const apHomePage = new APHomePage(page);
     const poCreationPage = new POCreationPage(page);

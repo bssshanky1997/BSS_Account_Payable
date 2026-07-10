@@ -193,8 +193,14 @@ class CustomReporter implements Reporter {
 
   /**
    * Resolves suite-specific folder name for report output.
+   * Scheduled runs always use the same enterprise report design as regression,
+   * but the generated report set is kept under General_Test.
    */
   private resolveSuiteFolderName(): string {
+    if (process.env.SCHEDULED_RUN === 'true') {
+      return 'General_Test';
+    }
+
     const suiteTypes = Array.from(new Set(this.testCases.map((testCase) => testCase.suiteType)));
     const hasFunctional = suiteTypes.includes('functional');
     const hasRegression = suiteTypes.includes('regression');

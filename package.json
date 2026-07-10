@@ -13,7 +13,6 @@
     "debug:login": "node scripts/validate-login.js",
     "report": "npx playwright show-report reports/report/html-report",
     "report:excel": "node scripts/generate-excel-report.js",
-    "report:scheduled": "node scripts/generate-scheduled-summary.js",
     "setup:scheduler": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup-playwright-task.ps1",
     "allure:generate": "npx allure generate reports/result/allure-results --clean -o reports/report/allure-report",
     "allure:open": "npx allure open reports/report/allure-report"
