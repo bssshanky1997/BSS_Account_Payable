@@ -7,12 +7,30 @@ const HOME_PATH = '/j4/default.jsp';
 const DEFAULT_AUTH_STATE_PATH = 'playwright/.auth/user.json';
 const PAGE_TIMEOUT = 60_000;
 const DEFAULT_BASE_URL = 'https://appqa.birchstreet.co';
+/** How long to wait for the server to respond to the login POST before treating it as a hung/unavailable backend. */
+const LOGIN_RESPONSE_TIMEOUT = Number(process.env.LOGIN_RESPONSE_TIMEOUT_MS) || 45_000;
+/** Retries in case the login hang/timeout is a transient server issue rather than a persistent outage. */
+const MAX_LOGIN_ATTEMPTS = Number(process.env.MAX_LOGIN_ATTEMPTS) || 2;
+/** Pause before retrying, giving a transient server hiccup a chance to clear before we hammer it again. */
+const LOGIN_RETRY_DELAY = 3_000;
 
 type LoginCredentials = {
   username: string;
   password: string;
   subscriberId: string;
 };
+
+/**
+ * Thrown only when the backend failed to respond to the login POST in time. Kept distinct
+ * from credential/business-logic login failures so the retry loop in globalSetup() can retry
+ * transient infra hangs without wasting time re-attempting a login that is genuinely wrong.
+ */
+class LoginTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LoginTimeoutError';
+  }
+}
 
 function readLoginCredentials(): LoginCredentials {
   const credentials: LoginCredentials = {
@@ -63,6 +81,18 @@ async function performLogin(
   await page.locator('#password').fill(credentials.password);
   await page.locator('#subscriberID').fill(credentials.subscriberId);
 
+  // Track the server's response to the login POST explicitly. Without this, if the
+  // authentication backend hangs and never responds, the code would previously sit in
+  // the polling loop below until an external factor (e.g. resource cleanup) force-closed
+  // the browser, surfacing a confusing "Target page/context/browser has been closed" error
+  // instead of a clear, actionable timeout.
+  const loginResponsePromise = page
+    .waitForResponse(
+      response => response.request().method() === 'POST' && response.url().toLowerCase().includes('login.jsp'),
+      { timeout: LOGIN_RESPONSE_TIMEOUT }
+    )
+    .catch(() => null);
+
   const loginButton = page.locator('#submitLogin').first();
   if (await loginButton.isVisible().catch(() => false)) {
     await loginButton.click({ noWaitAfter: true }).catch(async () => {
@@ -72,6 +102,15 @@ async function performLogin(
     await page.getByRole('button', { name: 'Login' }).click({ noWaitAfter: true }).catch(async () => {
       await page.getByRole('button', { name: 'Login' }).click({ force: true, noWaitAfter: true });
     });
+  }
+
+  const loginResponse = await loginResponsePromise;
+  if (!loginResponse && !(await hasPostLoginSignal())) {
+    throw new LoginTimeoutError(
+      `Login request timed out after ${LOGIN_RESPONSE_TIMEOUT / 1000}s: the server did not respond to the ` +
+        `login POST to ${loginUrl}. This indicates the authentication backend is slow, hung, or unavailable ` +
+        `(a server/environment issue) rather than a problem with the test script.`
+    );
   }
 
   const loginDeadline = Date.now() + PAGE_TIMEOUT;
@@ -116,7 +155,32 @@ async function globalSetup(config: FullConfig): Promise<void> {
   const page = await context.newPage();
 
   try {
-    await performLogin(page, loginUrl, credentials);
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= MAX_LOGIN_ATTEMPTS; attempt += 1) {
+      try {
+        await performLogin(page, loginUrl, credentials);
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[globalSetup] Login attempt ${attempt}/${MAX_LOGIN_ATTEMPTS} failed: ${message}`);
+
+        // Only retry when the failure was a backend hang/timeout - a transient infra issue that
+        // may clear up on its own. Wrong credentials or a genuine login-failure page won't be
+        // fixed by retrying, so fail fast instead of wasting another full timeout cycle.
+        if (!(error instanceof LoginTimeoutError)) {
+          break;
+        }
+        if (attempt < MAX_LOGIN_ATTEMPTS) {
+          await page.waitForTimeout(LOGIN_RETRY_DELAY);
+        }
+      }
+    }
+    if (lastError) {
+      throw lastError;
+    }
+
     await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: PAGE_TIMEOUT });
 
     await mkdir(path.dirname(authStatePath), { recursive: true });
